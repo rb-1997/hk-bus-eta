@@ -1,7 +1,16 @@
 "use client";
 
 import { useState, useMemo, useEffect, useRef } from "react";
-import { Search, MapPin, Star, StarOff, X, Clock, RefreshCw, Bus, LocateFixed, ChevronDown, ChevronUp } from "lucide-react";
+import {
+  Search,
+  MapPin,
+  Star,
+  StarOff,
+  X,
+  Clock,
+  RefreshCw,
+  LocateFixed,
+} from "lucide-react";
 import type { BusStop, ETA, BusRoute, FavoriteStop } from "@/types/bus";
 import { useETA, useRouteSearch, useRouteStops } from "@/hooks/useBusData";
 import { findClosestStops, haversineDistance } from "@/utils/geo";
@@ -28,13 +37,13 @@ interface SearchPanelProps {
 function OperatorBadge({ operator }: { operator: string }) {
   if (operator === "KMB" || operator === "LWB") {
     return (
-      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-600 text-white">
+      <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold tracking-wide bg-red-500 text-white shadow-sm">
         KMB
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-700 text-white">
+    <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold tracking-wide bg-blue-600 text-white shadow-sm">
       CTB
     </span>
   );
@@ -43,36 +52,51 @@ function OperatorBadge({ operator }: { operator: string }) {
 function ETAItem({ eta }: { eta: ETA }) {
   const mins = eta.etaMinutes;
   let timeLabel = "—";
-  let timeClass = "text-gray-400";
+  let timeClass = "text-slate-400";
+  let bgClass = "bg-slate-50";
+
   if (mins !== null) {
     if (mins <= 0) {
-      timeLabel = "Arriving";
-      timeClass = "text-green-600 font-semibold";
+      timeLabel = "Now";
+      timeClass = "text-emerald-600";
+      bgClass = "bg-emerald-50";
     } else if (mins === 1) {
       timeLabel = "1 min";
-      timeClass = "text-green-600 font-semibold";
+      timeClass = "text-emerald-600";
+      bgClass = "bg-emerald-50";
+    } else if (mins <= 5) {
+      timeLabel = `${mins} min`;
+      timeClass = "text-amber-600";
+      bgClass = "bg-amber-50";
     } else {
       timeLabel = `${mins} min`;
-      timeClass = mins <= 5 ? "text-amber-600 font-medium" : "text-gray-800";
+      timeClass = "text-slate-700";
+      bgClass = "bg-slate-50";
     }
   } else if (eta.remarkEn) {
-    timeLabel = eta.remarkEn.slice(0, 20);
+    timeLabel = eta.remarkEn.slice(0, 18);
   }
 
   return (
-    <div className="flex items-center justify-between py-2.5 border-b border-gray-100 last:border-0">
-      <div className="flex items-center gap-2 min-w-0">
+    <div className="flex items-center justify-between py-3.5 px-1 border-b border-slate-100 last:border-0">
+      <div className="flex items-center gap-3 min-w-0">
         <OperatorBadge operator={eta.operator} />
         <div className="min-w-0">
-          <div className="font-semibold text-gray-900 text-sm truncate">
+          <div className="font-semibold text-slate-900 text-[15px] tracking-tight">
             {eta.route}
           </div>
-          <div className="text-xs text-gray-500 truncate">
+          <div className="text-[13px] text-slate-500 truncate mt-0.5">
             to {eta.destEn}
           </div>
         </div>
       </div>
-      <div className={clsx("text-right text-sm tabular-nums shrink-0 ml-2", timeClass)}>
+      <div
+        className={clsx(
+          "text-right text-[15px] font-semibold tabular-nums shrink-0 ml-3 px-2.5 py-1 rounded-lg",
+          timeClass,
+          bgClass
+        )}
+      >
         {timeLabel}
       </div>
     </div>
@@ -102,10 +126,17 @@ export default function SearchPanel({
   const [countdown, setCountdown] = useState(60);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const { etas, isLoading: etaLoading, isValidating, error: etaError, refresh: refreshETA, timestamp } = useETA(selectedStop);
+  const {
+    etas,
+    isLoading: etaLoading,
+    isValidating,
+    error: etaError,
+    refresh: refreshETA,
+  } = useETA(selectedStop);
+
   const { routes: searchedRoutes, isLoading: routesLoading } = useRouteSearch(routeQuery);
   const [selectedRoute, setSelectedRoute] = useState<BusRoute | null>(null);
-  // LWB uses the same KMB API endpoints
+
   const operatorForApi =
     selectedRoute?.operator === "LWB" ? "KMB" : selectedRoute?.operator ?? null;
 
@@ -115,7 +146,6 @@ export default function SearchPanel({
     selectedRoute?.bound || "O"
   );
 
-  // Countdown timer for auto refresh
   useEffect(() => {
     if (!selectedStop) {
       setCountdown(60);
@@ -133,30 +163,22 @@ export default function SearchPanel({
     return () => clearInterval(timer);
   }, [selectedStop, refreshETA]);
 
-  // When route stops loaded, map them to coords from stops list and draw
   useEffect(() => {
     if (selectedRoute && stopSeqs.length > 0 && stops.length > 0) {
-      const path: { lat: number; lng: number }[] = [];
-      const stopMap = new Map(stops.map((s) => {
-        // match original id
-        for (const o of s.originalIds) {
-          return [o.id, s] as const; // rough, better later
-        }
-        return [s.id, s] as const;
-      }));
-      // Better matching
       const byOrig = new Map<string, BusStop>();
       stops.forEach((s) => {
         s.originalIds.forEach((o) => byOrig.set(o.id, s));
         byOrig.set(s.id, s);
       });
 
+      const path: { lat: number; lng: number }[] = [];
       stopSeqs
         .sort((a, b) => a.seq - b.seq)
         .forEach((ss) => {
           const found = byOrig.get(ss.stop);
           if (found) path.push({ lat: found.lat, lng: found.lng });
         });
+
       if (path.length > 1) {
         onShowRoutePath(path, selectedRoute);
       }
@@ -193,49 +215,45 @@ export default function SearchPanel({
   const handleSelectRoute = (route: BusRoute) => {
     setSelectedRoute(route);
     setRouteQuery(route.route);
-    // Clear stop selection for pure route view
-    // onSelectStop(null);
   };
 
   return (
-    <div className={clsx("flex flex-col bg-white h-full overflow-hidden", className)}>
-      {/* Header / drag handle for mobile */}
+    <div className={clsx("flex flex-col h-full bg-white", className)}>
       {isMobileSheet && (
         <div
-          className="flex items-center justify-center py-2 cursor-pointer border-b border-gray-100 shrink-0"
+          className="flex items-center justify-center pt-3 pb-1 cursor-pointer shrink-0"
           onClick={onToggleSheet}
         >
-          <div className="w-10 h-1 rounded-full bg-gray-300" />
-          {sheetExpanded ? (
-            <ChevronDown className="w-4 h-4 ml-2 text-gray-400" />
-          ) : (
-            <ChevronUp className="w-4 h-4 ml-2 text-gray-400" />
-          )}
+          <div className="w-12 h-1.5 rounded-full bg-slate-300" />
         </div>
       )}
 
-      {/* Top controls */}
-      <div className="p-3 border-b border-gray-100 shrink-0 space-y-2">
-        <div className="flex gap-2">
+      <div className="px-4 pt-3 pb-3 shrink-0 space-y-3">
+        <div className="flex gap-2.5">
           <button
             onClick={onLocate}
             disabled={locating}
-            className="flex items-center justify-center gap-1.5 px-3 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 disabled:opacity-60 active:scale-95 transition shrink-0"
+            className="flex items-center justify-center w-11 h-11 rounded-2xl bg-sky-500 text-white shadow-md shadow-sky-500/25 hover:bg-sky-600 active:scale-95 transition disabled:opacity-60"
+            aria-label="Locate me"
           >
-            <LocateFixed className={clsx("w-4 h-4", locating && "animate-pulse")} />
-            <span className="hidden sm:inline">Locate Me</span>
+            <LocateFixed className={clsx("w-5 h-5", locating && "animate-pulse")} />
           </button>
+
           <div className="relative flex-1">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-slate-400" />
             <input
               ref={inputRef}
               type="text"
-              placeholder={mode === "routes" ? "Route no. e.g. 101" : "Search street or building..."}
+              placeholder={
+                mode === "routes" ? "Route number e.g. 101" : "Search stop or street..."
+              }
               value={mode === "routes" ? routeQuery : searchText}
               onChange={(e) =>
-                mode === "routes" ? setRouteQuery(e.target.value) : setSearchText(e.target.value)
+                mode === "routes"
+                  ? setRouteQuery(e.target.value)
+                  : setSearchText(e.target.value)
               }
-              className="w-full pl-9 pr-8 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              className="w-full h-11 pl-10 pr-10 rounded-2xl bg-slate-100 border-0 text-[15px] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500/40 transition"
             />
             {(searchText || routeQuery) && (
               <button
@@ -245,7 +263,7 @@ export default function SearchPanel({
                   setSelectedRoute(null);
                   onShowRoutePath(null, null);
                 }}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-200"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -253,8 +271,7 @@ export default function SearchPanel({
           </div>
         </div>
 
-        {/* Mode tabs */}
-        <div className="flex gap-1 bg-gray-100 p-0.5 rounded-lg">
+        <div className="flex p-1 bg-slate-100 rounded-2xl">
           {(["stops", "routes", "favorites"] as const).map((m) => (
             <button
               key={m}
@@ -266,10 +283,10 @@ export default function SearchPanel({
                 }
               }}
               className={clsx(
-                "flex-1 py-1.5 text-xs font-medium rounded-md capitalize transition",
+                "flex-1 py-2 text-[13px] font-medium rounded-xl capitalize transition-all",
                 mode === m
-                  ? "bg-white text-gray-900 shadow-sm"
-                  : "text-gray-500 hover:text-gray-700"
+                  ? "bg-white text-slate-900 shadow-sm"
+                  : "text-slate-500 hover:text-slate-700"
               )}
             >
               {m === "favorites" ? `★ ${favorites.length}` : m}
@@ -278,20 +295,20 @@ export default function SearchPanel({
         </div>
       </div>
 
-      {/* Content area */}
-      <div className="flex-1 overflow-y-auto overscroll-contain">
-        {/* Selected stop ETA view */}
+      <div className="flex-1 overflow-y-auto overscroll-contain px-3 pb-4">
         {selectedStop && mode === "stops" && (
-          <div className="border-b border-gray-100">
-            <div className="p-3 bg-gray-50">
-              <div className="flex items-start justify-between gap-2">
+          <div className="mb-4">
+            <div className="bg-slate-50 rounded-2xl p-4 mb-3">
+              <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <h2 className="font-semibold text-gray-900 text-base leading-tight truncate">
+                  <h2 className="font-semibold text-slate-900 text-[17px] leading-snug tracking-tight truncate">
                     {selectedStop.nameEn}
                   </h2>
-                  <p className="text-sm text-gray-500 truncate">{selectedStop.nameTc}</p>
+                  <p className="text-[13px] text-slate-500 mt-0.5 truncate">
+                    {selectedStop.nameTc}
+                  </p>
                   {selectedStop.isMerged && (
-                    <span className="inline-block mt-1 text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded">
+                    <span className="inline-block mt-2 text-[11px] font-medium bg-amber-100 text-amber-800 px-2 py-0.5 rounded-md">
                       Merged stop
                     </span>
                   )}
@@ -299,29 +316,28 @@ export default function SearchPanel({
                 <div className="flex items-center gap-1 shrink-0">
                   <button
                     onClick={() => toggleFavorite(selectedStop)}
-                    className="p-1.5 rounded-full hover:bg-gray-200"
+                    className="p-2 rounded-xl hover:bg-white transition"
                     aria-label="Toggle favorite"
                   >
                     {isFavorite(selectedStop.id) ? (
-                      <Star className="w-5 h-5 text-amber-500 fill-amber-500" />
+                      <Star className="w-5 h-5 text-amber-400 fill-amber-400" />
                     ) : (
-                      <StarOff className="w-5 h-5 text-gray-400" />
+                      <StarOff className="w-5 h-5 text-slate-400" />
                     )}
                   </button>
                   <button
                     onClick={() => onSelectStop(null)}
-                    className="p-1.5 rounded-full hover:bg-gray-200"
+                    className="p-2 rounded-xl hover:bg-white transition"
                   >
-                    <X className="w-5 h-5 text-gray-500" />
+                    <X className="w-5 h-5 text-slate-400" />
                   </button>
                 </div>
               </div>
 
-              {/* Refresh bar */}
-              <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
+              <div className="mt-3.5 flex items-center justify-between text-[12px] text-slate-500">
                 <div className="flex items-center gap-1.5">
                   <Clock className="w-3.5 h-3.5" />
-                  <span>Auto refresh in {countdown}s</span>
+                  <span>Refresh in {countdown}s</span>
                 </div>
                 <button
                   onClick={() => {
@@ -329,30 +345,34 @@ export default function SearchPanel({
                     setCountdown(60);
                   }}
                   disabled={isValidating}
-                  className="flex items-center gap-1 text-primary-600 hover:underline disabled:opacity-50"
+                  className="flex items-center gap-1.5 font-medium text-sky-600 hover:text-sky-700 disabled:opacity-50"
                 >
-                  <RefreshCw className={clsx("w-3.5 h-3.5", isValidating && "animate-spin")} />
+                  <RefreshCw
+                    className={clsx("w-3.5 h-3.5", isValidating && "animate-spin")}
+                  />
                   Refresh
                 </button>
               </div>
             </div>
 
-            <div className="px-3 pb-2">
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
               {etaError && (
-                <div className="my-2 p-2 bg-red-50 text-red-700 text-xs rounded-lg">
-                  {etaError}. Try again later.
+                <div className="m-3 p-3 bg-red-50 text-red-600 text-[13px] rounded-xl">
+                  {etaError}
                 </div>
               )}
               {etaLoading && etas.length === 0 ? (
-                <div className="py-8 text-center text-sm text-gray-400">Loading ETAs...</div>
+                <div className="py-12 text-center text-[14px] text-slate-400">
+                  Loading arrivals...
+                </div>
               ) : etas.length === 0 ? (
-                <div className="py-6 text-center text-sm text-gray-500">
-                  No real-time ETA available for this stop.
+                <div className="py-10 text-center text-[14px] text-slate-400 px-4">
+                  No real-time data for this stop.
                   <br />
-                  <span className="text-xs">Try searching a route number instead.</span>
+                  <span className="text-[12px]">Try searching a route number.</span>
                 </div>
               ) : (
-                <div className="divide-y divide-gray-50">
+                <div className="px-4">
                   {etas.map((eta) => (
                     <ETAItem key={eta.id} eta={eta} />
                   ))}
@@ -362,100 +382,107 @@ export default function SearchPanel({
           </div>
         )}
 
-        {/* Lists */}
         {mode === "stops" && !selectedStop && (
-          <div className="p-2">
-            <p className="px-2 py-1 text-xs font-medium text-gray-400 uppercase tracking-wide">
-              {searchText ? "Search results" : "Nearby stops"}
+          <div>
+            <p className="px-1 py-2 text-[12px] font-medium text-slate-400 uppercase tracking-wider">
+              {searchText ? "Results" : "Nearby stops"}
             </p>
             {filteredStops.length === 0 ? (
-              <div className="py-10 text-center text-sm text-gray-400">
+              <div className="py-14 text-center text-[14px] text-slate-400">
                 {stops.length === 0 ? "Loading stops..." : "No stops found"}
               </div>
             ) : (
-              <ul className="space-y-0.5">
+              <div className="space-y-1">
                 {filteredStops.map((stop) => {
                   const dist =
                     userLat && userLng
                       ? Math.round(haversineDistance(userLat, userLng, stop.lat, stop.lng))
                       : null;
                   return (
-                    <li key={stop.id}>
-                      <button
-                        onClick={() => handleSelectStop(stop)}
-                        className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-gray-50 active:bg-gray-100 flex items-center gap-3"
-                      >
-                        <MapPin className="w-4 h-4 text-primary-500 shrink-0" />
-                        <div className="min-w-0 flex-1">
-                          <div className="text-sm font-medium text-gray-900 truncate">
-                            {stop.nameEn}
-                          </div>
-                          <div className="text-xs text-gray-500 truncate">{stop.nameTc}</div>
+                    <button
+                      key={stop.id}
+                      onClick={() => handleSelectStop(stop)}
+                      className="w-full text-left px-3.5 py-3.5 rounded-2xl hover:bg-slate-50 active:bg-slate-100 flex items-center gap-3.5 transition"
+                    >
+                      <div className="w-9 h-9 rounded-xl bg-sky-50 flex items-center justify-center shrink-0">
+                        <MapPin className="w-4.5 h-4.5 text-sky-500" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-[15px] font-medium text-slate-900 truncate">
+                          {stop.nameEn}
                         </div>
-                        {dist !== null && (
-                          <span className="text-xs text-gray-400 tabular-nums shrink-0">
-                            {dist < 1000 ? `${dist}m` : `${(dist / 1000).toFixed(1)}km`}
-                          </span>
-                        )}
-                      </button>
-                    </li>
+                        <div className="text-[13px] text-slate-500 truncate mt-0.5">
+                          {stop.nameTc}
+                        </div>
+                      </div>
+                      {dist !== null && (
+                        <span className="text-[12px] font-medium text-slate-400 tabular-nums shrink-0">
+                          {dist < 1000 ? `${dist} m` : `${(dist / 1000).toFixed(1)} km`}
+                        </span>
+                      )}
+                    </button>
                   );
                 })}
-              </ul>
+              </div>
             )}
           </div>
         )}
 
         {mode === "routes" && (
-          <div className="p-2">
-            <p className="px-2 py-1 text-xs font-medium text-gray-400 uppercase tracking-wide">
+          <div>
+            <p className="px-1 py-2 text-[12px] font-medium text-slate-400 uppercase tracking-wider">
               Route search
             </p>
             {routesLoading ? (
-              <div className="py-8 text-center text-sm text-gray-400">Searching...</div>
+              <div className="py-14 text-center text-[14px] text-slate-400">
+                Searching...
+              </div>
             ) : searchedRoutes.length === 0 && routeQuery ? (
-              <div className="py-8 text-center text-sm text-gray-400">No routes match</div>
+              <div className="py-14 text-center text-[14px] text-slate-400">
+                No routes found
+              </div>
             ) : (
-              <ul className="space-y-0.5">
+              <div className="space-y-1">
                 {searchedRoutes.map((r) => (
-                  <li key={r.id}>
-                    <button
-                      onClick={() => handleSelectRoute(r)}
-                      className={clsx(
-                        "w-full text-left px-3 py-2.5 rounded-lg flex items-center gap-3",
-                        selectedRoute?.id === r.id
-                          ? "bg-primary-50 ring-1 ring-primary-200"
-                          : "hover:bg-gray-50"
-                      )}
-                    >
-                      <OperatorBadge operator={r.operator} />
-                      <div className="min-w-0 flex-1">
-                        <div className="text-sm font-semibold text-gray-900">
-                          {r.route}
-                          {r.directionLabel && (
-                            <span className="ml-2 text-xs font-normal text-gray-500">
-                              {r.directionLabel}
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-xs text-gray-500 truncate">
-                          {r.originEn} → {r.destEn}
-                        </div>
+                  <button
+                    key={r.id}
+                    onClick={() => handleSelectRoute(r)}
+                    className={clsx(
+                      "w-full text-left px-3.5 py-3.5 rounded-2xl flex items-center gap-3.5 transition",
+                      selectedRoute?.id === r.id
+                        ? "bg-sky-50 ring-1 ring-sky-200"
+                        : "hover:bg-slate-50"
+                    )}
+                  >
+                    <OperatorBadge operator={r.operator} />
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[15px] font-semibold text-slate-900">
+                        {r.route}
+                        {r.directionLabel && (
+                          <span className="ml-2 text-[12px] font-normal text-slate-500">
+                            {r.directionLabel}
+                          </span>
+                        )}
                       </div>
-                    </button>
-                  </li>
+                      <div className="text-[13px] text-slate-500 truncate mt-0.5">
+                        {r.originEn} → {r.destEn}
+                      </div>
+                    </div>
+                  </button>
                 ))}
-              </ul>
+              </div>
             )}
             {selectedRoute && (
-              <div className="mt-3 p-3 bg-gray-50 rounded-lg text-xs text-gray-600">
-                Showing path for <strong>{selectedRoute.route}</strong> on map.
+              <div className="mt-4 p-3.5 bg-sky-50 rounded-2xl text-[13px] text-sky-800 flex items-center justify-between">
+                <span>
+                  Showing path for <strong>{selectedRoute.route}</strong>
+                </span>
                 <button
                   onClick={() => {
                     setSelectedRoute(null);
                     onShowRoutePath(null, null);
                   }}
-                  className="ml-2 text-primary-600 underline"
+                  className="font-medium underline"
                 >
                   Clear
                 </button>
@@ -465,18 +492,20 @@ export default function SearchPanel({
         )}
 
         {mode === "favorites" && (
-          <div className="p-2">
+          <div>
             {favorites.length === 0 ? (
-              <div className="py-12 text-center text-sm text-gray-400">
-                <Star className="w-8 h-8 mx-auto mb-2 text-gray-300" />
-                No favorites yet.
-                <br />
-                Tap the star on a stop to save it.
+              <div className="py-16 text-center">
+                <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-4">
+                  <Star className="w-7 h-7 text-slate-300" />
+                </div>
+                <p className="text-[15px] text-slate-500">No favorites yet</p>
+                <p className="text-[13px] text-slate-400 mt-1">
+                  Tap the star on any stop to save it
+                </p>
               </div>
             ) : (
-              <ul className="space-y-0.5">
+              <div className="space-y-1">
                 {favorites.map((fav) => {
-                  // Find full stop if available
                   const full = stops.find((s) => s.id === fav.id) || {
                     id: fav.id,
                     nameEn: fav.nameEn,
@@ -486,31 +515,33 @@ export default function SearchPanel({
                     originalIds: [],
                   };
                   return (
-                    <li key={fav.id}>
-                      <button
-                        onClick={() => handleSelectStop(full as BusStop)}
-                        className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-gray-50 flex items-center gap-3"
-                      >
-                        <Star className="w-4 h-4 text-amber-500 fill-amber-500 shrink-0" />
-                        <div className="min-w-0 flex-1">
-                          <div className="text-sm font-medium text-gray-900 truncate">
-                            {fav.nameEn}
-                          </div>
-                          <div className="text-xs text-gray-500 truncate">{fav.nameTc}</div>
+                    <button
+                      key={fav.id}
+                      onClick={() => handleSelectStop(full as BusStop)}
+                      className="w-full text-left px-3.5 py-3.5 rounded-2xl hover:bg-slate-50 flex items-center gap-3.5 transition"
+                    >
+                      <div className="w-9 h-9 rounded-xl bg-amber-50 flex items-center justify-center shrink-0">
+                        <Star className="w-4.5 h-4.5 text-amber-400 fill-amber-400" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-[15px] font-medium text-slate-900 truncate">
+                          {fav.nameEn}
                         </div>
-                      </button>
-                    </li>
+                        <div className="text-[13px] text-slate-500 truncate mt-0.5">
+                          {fav.nameTc}
+                        </div>
+                      </div>
+                    </button>
                   );
                 })}
-              </ul>
+              </div>
             )}
           </div>
         )}
       </div>
 
-      {/* Footer note */}
-      <div className="px-3 py-2 border-t border-gray-100 text-[10px] text-gray-400 text-center shrink-0">
-        Data from DATA.GOV.HK · KMB & Citybus · Updated every ~1 min
+      <div className="px-4 py-3 border-t border-slate-100 text-[11px] text-slate-400 text-center shrink-0 safe-bottom">
+        Data from DATA.GOV.HK · KMB & Citybus
       </div>
     </div>
   );

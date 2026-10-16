@@ -273,8 +273,8 @@ export default function Map({
             >
               <Popup>
                 <div className="text-sm font-medium">
-                  <div>{ps.name_en}</div>
-                  <div className="text-gray-500 text-xs">{ps.name_tc}</div>
+                  <div>{ps.name_tc || ps.name_en}</div>
+                  <div className="text-gray-500 text-xs">{ps.name_en}</div>
                   <div className="text-xs text-emerald-700 mt-1">
                     綠Van {ps.gmb?.code} · 第 {ps.seq} 站
                   </div>
@@ -298,8 +298,8 @@ export default function Map({
             >
               <Popup>
                 <div className="text-sm font-medium">
-                  <div>{stop.nameEn}</div>
-                  <div className="text-gray-500 text-xs">{stop.nameTc}</div>
+                  <div>{stop.nameTc || stop.nameEn}</div>
+                  <div className="text-gray-500 text-xs">{stop.nameEn}</div>
                   {stop.isMerged && (
                     <div className="text-xs text-amber-600 mt-1">Merged KMB + CTB</div>
                   )}

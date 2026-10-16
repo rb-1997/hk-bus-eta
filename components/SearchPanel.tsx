@@ -345,10 +345,10 @@ export default function SearchPanel({
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <h2 className="font-semibold text-slate-900 text-[17px] leading-snug tracking-tight truncate">
-                    {selectedStop.nameEn}
+                    {selectedStop.nameTc || selectedStop.nameEn}
                   </h2>
                   <p className="text-[13px] text-slate-500 mt-0.5 truncate">
-                    {selectedStop.nameTc}
+                    {selectedStop.nameEn}
                   </p>
                   {selectedStop.isMerged && (
                     <span className="inline-block mt-2 text-[11px] font-medium bg-amber-100 text-amber-800 px-2 py-0.5 rounded-md">
@@ -452,10 +452,10 @@ export default function SearchPanel({
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="text-[15px] font-medium text-slate-900 truncate">
-                          {stop.nameEn}
+                          {stop.nameTc || stop.nameEn}
                         </div>
                         <div className="text-[13px] text-slate-500 truncate mt-0.5">
-                          {stop.nameTc}
+                          {stop.nameEn}
                         </div>
                       </div>
                       {dist !== null && (
@@ -573,10 +573,10 @@ export default function SearchPanel({
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="text-[15px] font-medium text-slate-900 truncate">
-                          {fav.nameEn}
+                          {fav.nameTc || fav.nameEn}
                         </div>
                         <div className="text-[13px] text-slate-500 truncate mt-0.5">
-                          {fav.nameTc}
+                          {fav.nameEn}
                         </div>
                       </div>
                     </button>

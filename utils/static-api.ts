@@ -35,8 +35,41 @@ async function plainFetch(url: string) {
 const KMB_BASE = "https://data.etabus.gov.hk/v1/transport/kmb";
 const CTB_BASE = "https://rt.data.gov.hk/v2/transport/citybus";
 
+const STOPS_LS_KEY = "hkbuseta.stops.v1";
+
 export async function getStops(): Promise<BusStop[]> {
   if (stopsCache && Date.now() - stopsCacheAt < STOPS_TTL) return stopsCache;
+  // 1) localStorage (instant on repeat visits)
+  try {
+    const raw = localStorage.getItem(STOPS_LS_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 1000) {
+        stopsCache = parsed;
+        stopsCacheAt = Date.now();
+        return stopsCache;
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+  // 2) bundled static file (fast CDN, no API dependency)
+  try {
+    const bundled = await plainFetch("stops.json");
+    if (Array.isArray(bundled) && bundled.length > 1000) {
+      stopsCache = bundled as BusStop[];
+      stopsCacheAt = Date.now();
+      try {
+        localStorage.setItem(STOPS_LS_KEY, JSON.stringify(bundled));
+      } catch {
+        /* quota — ignore */
+      }
+      return stopsCache;
+    }
+  } catch {
+    /* fall through to live APIs */
+  }
+  // 3) live APIs (fallback)
   const [kmbRaw, ctbRaw] = await Promise.all([
     plainFetch(`${KMB_BASE}/stop`).then((j) => j.data || []).catch(() => []),
     plainFetch(`${CTB_BASE}/stop`).then((j) => j.data || []).catch(() => []),

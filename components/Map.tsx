@@ -167,9 +167,9 @@ export default function Map({
 
   const visibleStops = useMemo(() => {
     if (!bounds) return stops.slice(0, 80); // initial
-    // Limit to ~150 markers for perf
+    // Limit markers for smooth panning on phones
     const filtered = filterStopsInBounds(stops, bounds, 0.003);
-    return filtered.slice(0, 200);
+    return filtered.slice(0, 120);
   }, [stops, bounds]);
 
   const handleBounds = useCallback(
@@ -188,6 +188,7 @@ export default function Map({
         zoom={DEFAULT_ZOOM}
         className="w-full h-full z-0"
         zoomControl={false}
+        preferCanvas={true}
         ref={(ref) => {
           if (ref) mapRef.current = ref;
         }}

@@ -161,6 +161,7 @@ export default function SearchPanel({
     selectedRoute?.gmb
   );
 
+  // Auto-refresh ETA countdown (5s tick to avoid re-rendering panel every second)
   useEffect(() => {
     if (!selectedStop) {
       setCountdown(60);
@@ -168,13 +169,13 @@ export default function SearchPanel({
     }
     const timer = setInterval(() => {
       setCountdown((c) => {
-        if (c <= 1) {
+        if (c <= 5) {
           refreshETA();
           return 60;
         }
-        return c - 1;
+        return c - 5;
       });
-    }, 1000);
+    }, 5000);
     return () => clearInterval(timer);
   }, [selectedStop, refreshETA]);
 

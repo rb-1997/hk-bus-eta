@@ -168,8 +168,10 @@ export async function fetchKMBRouteStops(
   bound: string,
   serviceType: string = "1"
 ): Promise<{ stop: string; seq: number }[]> {
+  // KMB route-stop API requires "outbound"/"inbound", not "O"/"I"
+  const dir = bound === "I" || bound === "inbound" ? "inbound" : "outbound";
   const res = await fetch(
-    `${KMB_BASE}/route-stop/${route}/${bound}/${serviceType}`,
+    `${KMB_BASE}/route-stop/${route}/${dir}/${serviceType}`,
     { next: { revalidate: 86400 } }
   );
   if (!res.ok) return [];

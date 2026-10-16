@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect, useRef } from "react";
+import useSWR from "swr";
 import {
   Search,
   MapPin,
@@ -11,7 +12,7 @@ import {
   RefreshCw,
   LocateFixed,
 } from "lucide-react";
-import type { BusStop, ETA, BusRoute, FavoriteStop, PathStopMarker } from "@/types/bus";
+import type { BusStop, ETA, BusRoute, FavoriteStop, PathStopMarker, RouteStopSeq } from "@/types/bus";
 import { useETA, useRouteSearch, useRouteStops } from "@/hooks/useBusData";
 import { findClosestStops, haversineDistance } from "@/utils/geo";
 import clsx from "clsx";
@@ -110,6 +111,157 @@ function ETAItem({ eta }: { eta: ETA }) {
         )}
       >
         {timeLabel}
+      </div>
+    </div>
+  );
+}
+
+// One row in the route stops list: stop name + live ETA for this route
+function RouteStopRow({
+  seq,
+  nameTc,
+  nameEn,
+  route,
+  gmbMeta,
+  kmbStopId,
+}: {
+  seq: number;
+  nameTc?: string;
+  nameEn?: string;
+  route: BusRoute;
+  gmbMeta?: { region: string; code: string; route_id: number; route_seq: number };
+  kmbStopId?: string;
+}) {
+  const { data: etas } = useSWR(
+    route.operator === "GMB" && gmbMeta
+      ? (["route-stop-eta-gmb", gmbMeta.route_id, gmbMeta.route_seq, seq] as const)
+      : route.operator === "KMB" && kmbStopId
+        ? (["route-stop-eta-kmb", kmbStopId, route.route] as const)
+        : null,
+    async (key: readonly [string, ...unknown[]]) => {
+      if (key[0] === "route-stop-eta-gmb" && gmbMeta) {
+        const { getETAs } = await import("@/utils/static-api");
+        return getETAs({
+          operator: "GMB",
+          gmb: {
+            route_id: gmbMeta.route_id,
+            route_seq: gmbMeta.route_seq,
+            stop_seq: seq,
+            code: gmbMeta.code,
+            dest_tc: route.destTc,
+            dest_en: route.destEn,
+          },
+        });
+      } else if (key[0] === "route-stop-eta-kmb" && kmbStopId) {
+        const { getETAs } = await import("@/utils/static-api");
+        const all = await getETAs({ operator: "KMB", originalId: kmbStopId });
+        return all.filter((e) => e.route === route.route).slice(0, 3);
+      }
+      return [];
+    },
+    { revalidateOnFocus: false, dedupingInterval: 30000, errorRetryCount: 1 }
+  );
+
+  const list = (etas || []).slice(0, 3);
+  return (
+    <div className="flex items-center gap-3 py-2.5 px-1 border-b border-slate-100 last:border-0">
+      <div className="w-7 h-7 rounded-full bg-slate-100 text-slate-600 text-[12px] font-semibold flex items-center justify-center shrink-0 tabular-nums">
+        {seq}
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="text-[14px] font-medium text-slate-900 truncate">
+          {nameTc || nameEn}
+        </div>
+        {nameTc && nameEn && nameTc !== nameEn && (
+          <div className="text-[12px] text-slate-400 truncate">{nameEn}</div>
+        )}
+      </div>
+      <div className="shrink-0 text-right">
+        {!etas ? (
+          <span className="text-[12px] text-slate-300">…</span>
+        ) : list.length === 0 ? (
+          <span className="text-[12px] text-slate-300">—</span>
+        ) : (
+          <div className="flex flex-col items-end gap-0.5">
+            {list.map((e, i) => (
+              <span
+                key={i}
+                className={clsx(
+                  "text-[13px] font-semibold tabular-nums",
+                  e.etaMinutes !== null && e.etaMinutes <= 1
+                    ? "text-emerald-600"
+                    : e.etaMinutes !== null && e.etaMinutes <= 5
+                      ? "text-amber-600"
+                      : "text-slate-700"
+                )}
+              >
+                {e.etaMinutes === null ? (e.remarkTc || e.remarkEn || "—") : e.etaMinutes <= 0 ? "Now" : `${e.etaMinutes} min`}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Full route stops list with live ETAs, shown when a route is selected
+function RouteStopsList({
+  route,
+  stopSeqs,
+  stops,
+}: {
+  route: BusRoute;
+  stopSeqs: RouteStopSeq[];
+  stops: BusStop[];
+}) {
+  const enriched = useMemo(() => {
+    const byOrig = new Map<string, BusStop>();
+    stops.forEach((s) => {
+      s.originalIds.forEach((o) => byOrig.set(o.id, s));
+      byOrig.set(s.id, s);
+    });
+    return [...stopSeqs]
+      .sort((a, b) => a.seq - b.seq)
+      .map((ss) => {
+        if (ss.lat != null && ss.lng != null) {
+          return {
+            seq: ss.seq,
+            nameTc: ss.name_tc,
+            nameEn: ss.name_en,
+            gmbMeta: route.gmb,
+            kmbStopId: undefined as string | undefined,
+          };
+        }
+        const found = byOrig.get(ss.stop);
+        return {
+          seq: Number(ss.seq) || 0,
+          nameTc: found?.nameTc,
+          nameEn: found?.nameEn,
+          gmbMeta: undefined,
+          kmbStopId: route.operator === "KMB" ? ss.stop : undefined,
+        };
+      });
+  }, [stopSeqs, stops, route]);
+
+  if (enriched.length === 0) return null;
+  return (
+    <div className="mt-3 bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+      <div className="px-4 py-2.5 bg-slate-50 text-[12px] font-semibold text-slate-500 uppercase tracking-wider">
+        {route.route} · {enriched.length} 個站 · 即時到站
+      </div>
+      <div className="px-3 max-h-[45vh] overflow-y-auto overscroll-contain">
+        {enriched.map((s) => (
+          <RouteStopRow
+            key={s.seq}
+            seq={s.seq}
+            nameTc={s.nameTc}
+            nameEn={s.nameEn}
+            route={route}
+            gmbMeta={s.gmbMeta}
+            kmbStopId={s.kmbStopId}
+          />
+        ))}
       </div>
     </div>
   );
@@ -535,6 +687,9 @@ export default function SearchPanel({
                   Clear
                 </button>
               </div>
+            )}
+            {selectedRoute && stopSeqs.length > 0 && (
+              <RouteStopsList route={selectedRoute} stopSeqs={stopSeqs} stops={stops} />
             )}
           </div>
         )}

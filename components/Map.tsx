@@ -148,6 +148,21 @@ function FlyToSelected({ stop }: { stop: BusStop | null }) {
   return null;
 }
 
+function FitRoutePath({ path }: { path: { lat: number; lng: number }[] | undefined }) {
+  const map = useMap();
+  const prevLen = useRef(0);
+  useEffect(() => {
+    const len = path?.length ?? 0;
+    // Only fit when a new path appears (not on every render)
+    if (len > 1 && len !== prevLen.current) {
+      const b = L.latLngBounds(path!.map((p) => [p.lat, p.lng] as [number, number]));
+      map.fitBounds(b.pad(0.12), { animate: true, duration: 0.6 });
+    }
+    prevLen.current = len;
+  }, [path, map]);
+  return null;
+}
+
 export default function Map({
   stops,
   selectedStop,
@@ -201,6 +216,7 @@ export default function Map({
         <MapEvents onBoundsChange={handleBounds} onSearchThisArea={onSearchThisArea} />
         <Recenter lat={userLat} lng={userLng} />
         <FlyToSelected stop={selectedStop} />
+        <FitRoutePath path={routePath} />
 
         {/* User location */}
         {userLat && userLng && (

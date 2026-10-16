@@ -1,4 +1,4 @@
-export type Operator = "KMB" | "CTB" | "LWB";
+export type Operator = "KMB" | "CTB" | "LWB" | "GMB";
 
 export interface BusStop {
   id: string; // unified or original
@@ -10,10 +10,19 @@ export interface BusStop {
   lng: number;
   // For merged
   isMerged?: boolean;
+  // For green minibus stops picked from a route path
+  gmb?: {
+    route_id: number;
+    route_seq: number;
+    stop_seq: number;
+    code: string;
+    dest_tc: string;
+    dest_en: string;
+  };
 }
 
 export interface BusRoute {
-  id: string; // e.g. "KMB-101-1" or "CTB-107"
+  id: string; // e.g. "KMB-101-1" or "CTB-107" or "GMB-HKI-1-1"
   operator: Operator;
   route: string;
   serviceType?: string; // KMB only, "1" usually
@@ -24,6 +33,42 @@ export interface BusRoute {
   destTc: string;
   // For display
   directionLabel?: string;
+  // For green minibus (bundled static data)
+  gmb?: {
+    region: string;
+    code: string;
+    route_id: number;
+    route_seq: number;
+  };
+}
+
+// A stop in a route's stop sequence. KMB/CTB resolve coords via the global
+// stop list; GMB carries its own coords + names from the bundled dataset.
+export interface RouteStopSeq {
+  stop: string;
+  seq: number;
+  lat?: number;
+  lng?: number;
+  name_tc?: string;
+  name_en?: string;
+}
+
+// Clickable stop marker on a drawn route path (used for GMB, whose stops
+// are not in the global stop list).
+export interface PathStopMarker {
+  lat: number;
+  lng: number;
+  seq: number;
+  name_tc?: string;
+  name_en?: string;
+  gmb?: {
+    route_id: number;
+    route_seq: number;
+    stop_seq: number;
+    code: string;
+    dest_tc: string;
+    dest_en: string;
+  };
 }
 
 export interface ETA {

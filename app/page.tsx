@@ -6,7 +6,7 @@ import { useGeolocation } from "@/hooks/useGeolocation";
 import { useStops } from "@/hooks/useBusData";
 import { useFavorites } from "@/hooks/useFavorites";
 import SearchPanel from "@/components/SearchPanel";
-import type { BusStop, BusRoute } from "@/types/bus";
+import type { BusStop, BusRoute, PathStopMarker } from "@/types/bus";
 import { findClosestStops } from "@/utils/geo";
 import { AlertCircle } from "lucide-react";
 
@@ -35,6 +35,7 @@ export default function HomePage() {
 
   const [selectedStop, setSelectedStop] = useState<BusStop | null>(null);
   const [routePath, setRoutePath] = useState<{ lat: number; lng: number }[] | null>(null);
+  const [routePathStops, setRoutePathStops] = useState<PathStopMarker[] | null>(null);
   const [highlightedRoute, setHighlightedRoute] = useState<BusRoute | null>(null);
   const [sheetExpanded, setSheetExpanded] = useState(true);
   const [globalError, setGlobalError] = useState<string | null>(null);
@@ -61,14 +62,23 @@ export default function HomePage() {
     setSelectedStop(stop);
     if (stop) {
       setSheetExpanded(true);
-      setRoutePath(null);
-      setHighlightedRoute(null);
+      // Keep the GMB route path visible when tapping its own stops
+      if (!stop.id.startsWith("gmb-")) {
+        setRoutePath(null);
+        setRoutePathStops(null);
+        setHighlightedRoute(null);
+      }
     }
   }, []);
 
   const handleShowRoutePath = useCallback(
-    (path: { lat: number; lng: number }[] | null, route: BusRoute | null) => {
+    (
+      path: { lat: number; lng: number }[] | null,
+      route: BusRoute | null,
+      pathStops?: PathStopMarker[] | null
+    ) => {
       setRoutePath(path);
+      setRoutePathStops(pathStops || null);
       setHighlightedRoute(route);
     },
     []
@@ -114,6 +124,7 @@ export default function HomePage() {
           userLng={userLng}
           onSearchThisArea={handleSearchThisArea}
           routePath={routePath || undefined}
+          routePathStops={routePathStops}
           highlightedRoute={highlightedRoute}
         />
 

@@ -1,7 +1,7 @@
 "use client";
 
 import useSWR from "swr";
-import type { BusStop, ETA, BusRoute } from "@/types/bus";
+import type { BusStop, ETA, BusRoute, RouteStopSeq } from "@/types/bus";
 import {
   getStops,
   getETAs,
@@ -40,11 +40,22 @@ export function useETA(
     const ctbOrig = stop.originalIds.find((o) => o.operator === "CTB");
     const query: {
       stopId: string;
-      operator?: "KMB" | "CTB";
+      operator?: "KMB" | "CTB" | "GMB";
       originalId?: string;
       routes?: string;
+      gmb?: {
+        route_id: number;
+        route_seq: number;
+        stop_seq: number;
+        code: string;
+        dest_tc: string;
+        dest_en: string;
+      };
     } = { stopId: stop.id };
-    if (kmbOrig) {
+    if (stop.gmb) {
+      query.operator = "GMB";
+      query.gmb = stop.gmb;
+    } else if (kmbOrig) {
       query.operator = "KMB";
       query.originalId = kmbOrig.id;
     } else if (ctbOrig) {
@@ -94,22 +105,23 @@ export function useRouteSearch(query: string) {
 
 export function useRouteStops(
   route: string | null,
-  operator: "KMB" | "CTB" | "LWB" | null,
-  bound: string = "O"
+  operator: "KMB" | "CTB" | "LWB" | "GMB" | null,
+  bound: string = "O",
+  gmbMeta?: { region: string; code: string; route_id: number; route_seq: number }
 ) {
   const key =
     route && operator
-      ? (["route-stops", route, operator, bound] as [string, string, string, string])
+      ? (["route-stops", route, operator, bound, gmbMeta?.route_seq ?? 0] as [string, string, string, string, number])
       : null;
 
-  const { data, error, isLoading } = useSWR(key, (k: [string, string, string, string]) =>
-    getRouteStops(k[1], k[2] as "KMB" | "CTB" | "LWB", k[3]), {
+  const { data, error, isLoading } = useSWR<RouteStopSeq[]>(key, (k: [string, string, string, string, number]) =>
+    getRouteStops(k[1], k[2] as "KMB" | "CTB" | "LWB" | "GMB", k[3], gmbMeta), {
     revalidateOnFocus: false,
     dedupingInterval: 300000,
   });
 
   return {
-    stopSeqs: (data || []) as { stop: string; seq: number }[],
+    stopSeqs: (data || []) as RouteStopSeq[],
     isLoading,
     error: error?.message || null,
   };

@@ -12,7 +12,7 @@ import {
 } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import type { BusStop, BusRoute } from "@/types/bus";
+import type { BusStop, BusRoute, PathStopMarker } from "@/types/bus";
 import { filterStopsInBounds, DEFAULT_HK_CENTER, DEFAULT_ZOOM } from "@/utils/geo";
 import { Bus } from "lucide-react";
 
@@ -67,6 +67,20 @@ const userIcon = new L.DivIcon({
   iconAnchor: [8, 8],
 });
 
+const gmbStopIcon = new L.DivIcon({
+  className: "gmb-stop-icon",
+  html: `<div style="
+    background: #16a34a;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2px solid white;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+  "></div>`,
+  iconSize: [14, 14],
+  iconAnchor: [7, 7],
+});
+
 interface MapProps {
   stops: BusStop[];
   selectedStop: BusStop | null;
@@ -76,6 +90,7 @@ interface MapProps {
   onBoundsChange?: (bounds: { north: number; south: number; east: number; west: number }) => void;
   onSearchThisArea?: () => void;
   routePath?: { lat: number; lng: number }[];
+  routePathStops?: PathStopMarker[] | null;
   highlightedRoute?: BusRoute | null;
   className?: string;
 }
@@ -142,6 +157,7 @@ export default function Map({
   onBoundsChange,
   onSearchThisArea,
   routePath,
+  routePathStops,
   highlightedRoute,
   className = "",
 }: MapProps) {
@@ -196,9 +212,60 @@ export default function Map({
         {routePath && routePath.length > 1 && (
           <Polyline
             positions={routePath.map((p) => [p.lat, p.lng] as [number, number])}
-            pathOptions={{ color: highlightedRoute?.operator === "KMB" ? "#E30613" : "#003DA5", weight: 5, opacity: 0.75 }}
+            pathOptions={{
+              color:
+                highlightedRoute?.operator === "GMB"
+                  ? "#16a34a"
+                  : highlightedRoute?.operator === "KMB"
+                    ? "#E30613"
+                    : "#003DA5",
+              weight: 5,
+              opacity: 0.75,
+            }}
           />
         )}
+
+        {/* GMB route path stops (clickable, green) */}
+        {routePathStops?.map((ps) => {
+          const key = `gmb-${ps.gmb?.route_id}-${ps.gmb?.route_seq}-${ps.seq}`;
+          const isSelected = selectedStop?.id === key;
+          return (
+            <Marker
+              key={key}
+              position={[ps.lat, ps.lng]}
+              icon={isSelected ? selectedIcon : gmbStopIcon}
+              eventHandlers={{
+                click: () => {
+                  if (!ps.gmb) return;
+                  onSelectStop({
+                    id: key,
+                    originalIds: [
+                      {
+                        operator: "GMB",
+                        id: `${ps.gmb.route_id}/${ps.gmb.route_seq}/${ps.gmb.stop_seq}`,
+                      },
+                    ],
+                    nameEn: ps.name_en || "",
+                    nameTc: ps.name_tc || "",
+                    lat: ps.lat,
+                    lng: ps.lng,
+                    gmb: ps.gmb,
+                  });
+                },
+              }}
+            >
+              <Popup>
+                <div className="text-sm font-medium">
+                  <div>{ps.name_en}</div>
+                  <div className="text-gray-500 text-xs">{ps.name_tc}</div>
+                  <div className="text-xs text-emerald-700 mt-1">
+                    綠Van {ps.gmb?.code} · 第 {ps.seq} 站
+                  </div>
+                </div>
+              </Popup>
+            </Marker>
+          );
+        })}
 
         {/* Visible stops */}
         {visibleStops.map((stop) => {

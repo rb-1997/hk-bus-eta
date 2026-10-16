@@ -11,7 +11,7 @@ import {
   RefreshCw,
   LocateFixed,
 } from "lucide-react";
-import type { BusStop, ETA, BusRoute, FavoriteStop } from "@/types/bus";
+import type { BusStop, ETA, BusRoute, FavoriteStop, PathStopMarker } from "@/types/bus";
 import { useETA, useRouteSearch, useRouteStops } from "@/hooks/useBusData";
 import { findClosestStops, haversineDistance } from "@/utils/geo";
 import clsx from "clsx";
@@ -27,8 +27,11 @@ interface SearchPanelProps {
   favorites: FavoriteStop[];
   isFavorite: (id: string) => boolean;
   toggleFavorite: (stop: BusStop) => void;
-  onShowRoutePath: (path: { lat: number; lng: number }[] | null, route: BusRoute | null) => void;
-  className?: string;
+  onShowRoutePath: (
+    path: { lat: number; lng: number }[] | null,
+    route: BusRoute | null,
+    pathStops?: PathStopMarker[] | null
+  ) => void;  className?: string;
   isMobileSheet?: boolean;
   sheetExpanded?: boolean;
   onToggleSheet?: () => void;
@@ -39,6 +42,13 @@ function OperatorBadge({ operator }: { operator: string }) {
     return (
       <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold tracking-wide bg-red-500 text-white shadow-sm">
         KMB
+      </span>
+    );
+  }
+  if (operator === "GMB") {
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold tracking-wide bg-emerald-600 text-white shadow-sm">
+        小巴
       </span>
     );
   }
@@ -143,7 +153,8 @@ export default function SearchPanel({
   const { stopSeqs } = useRouteStops(
     selectedRoute?.route || null,
     operatorForApi,
-    selectedRoute?.bound || "O"
+    selectedRoute?.bound || "O",
+    selectedRoute?.gmb
   );
 
   useEffect(() => {
@@ -164,7 +175,8 @@ export default function SearchPanel({
   }, [selectedStop, refreshETA]);
 
   useEffect(() => {
-    if (selectedRoute && stopSeqs.length > 0 && stops.length > 0) {
+    const isGmb = selectedRoute?.operator === "GMB";
+    if (selectedRoute && stopSeqs.length > 0 && (stops.length > 0 || isGmb)) {
       const byOrig = new Map<string, BusStop>();
       stops.forEach((s) => {
         s.originalIds.forEach((o) => byOrig.set(o.id, s));
@@ -172,15 +184,38 @@ export default function SearchPanel({
       });
 
       const path: { lat: number; lng: number }[] = [];
+      const pathStops: PathStopMarker[] = [];
       stopSeqs
         .sort((a, b) => a.seq - b.seq)
         .forEach((ss) => {
-          const found = byOrig.get(ss.stop);
-          if (found) path.push({ lat: found.lat, lng: found.lng });
+          if (ss.lat != null && ss.lng != null) {
+            // GMB: coords embedded in the bundled dataset
+            path.push({ lat: ss.lat, lng: ss.lng });
+            pathStops.push({
+              lat: ss.lat,
+              lng: ss.lng,
+              seq: ss.seq,
+              name_tc: ss.name_tc,
+              name_en: ss.name_en,
+              gmb: selectedRoute.gmb
+                ? {
+                    route_id: selectedRoute.gmb.route_id,
+                    route_seq: selectedRoute.gmb.route_seq,
+                    stop_seq: ss.seq,
+                    code: selectedRoute.gmb.code,
+                    dest_tc: selectedRoute.destTc,
+                    dest_en: selectedRoute.destEn,
+                  }
+                : undefined,
+            });
+          } else {
+            const found = byOrig.get(ss.stop);
+            if (found) path.push({ lat: found.lat, lng: found.lng });
+          }
         });
 
       if (path.length > 1) {
-        onShowRoutePath(path, selectedRoute);
+        onShowRoutePath(path, selectedRoute, isGmb ? pathStops : null);
       }
     } else if (!selectedRoute) {
       onShowRoutePath(null, null);
@@ -541,7 +576,7 @@ export default function SearchPanel({
       </div>
 
       <div className="px-4 py-3 border-t border-slate-100 text-[11px] text-slate-400 text-center shrink-0 safe-bottom">
-        Data from DATA.GOV.HK · KMB & Citybus
+        Data from DATA.GOV.HK · KMB & Citybus · 綠Van
       </div>
     </div>
   );

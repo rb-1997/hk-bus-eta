@@ -12,15 +12,19 @@ import {
   normalizeETAFromCTB,
 } from "@/utils/api";
 import { mergeStops } from "@/utils/geo";
-import type { BusStop, BusRoute, ETA } from "@/types/bus";
+import type { BusStop, BusRoute, ETA, RouteStopSeq } from "@/types/bus";
 
 // ---- simple in-memory caches (session scope) ----
 let stopsCache: BusStop[] | null = null;
 let stopsCacheAt = 0;
 let routesCache: { kmb: any[]; ctb: any[] } | null = null;
 let routesCacheAt = 0;
+let gmbIndexCache: any[] | null = null;
 const STOPS_TTL = 24 * 3600 * 1000;
 const ROUTES_TTL = 24 * 3600 * 1000;
+
+const GMB_PROXY =
+  "https://hengfuk-gmb-proxy-rb-1997s-projects.vercel.app/api/gmb-proxy?path=";
 
 async function plainFetch(url: string) {
   const res = await fetch(url);
@@ -113,14 +117,75 @@ export async function searchRoutes(query: string): Promise<BusRoute[]> {
     return a.route.localeCompare(b.route);
   });
 
+  // Green minibus (bundled static index; official API has no CORS)
+  try {
+    if (!gmbIndexCache) {
+      gmbIndexCache = await plainFetch("gmb/index.json").catch(() => []);
+    }
+    for (const g of gmbIndexCache || []) {
+      if (
+        q &&
+        !g.code.toUpperCase().includes(q) &&
+        !(g.dest_tc || "").includes(query.trim()) &&
+        !(g.orig_tc || "").includes(query.trim()) &&
+        !(g.dest_en || "").toUpperCase().includes(q) &&
+        !(g.orig_en || "").toUpperCase().includes(q)
+      ) {
+        continue;
+      }
+      routes.push({
+        id: `GMB-${g.region}-${g.code}-${g.route_seq}`,
+        operator: "GMB",
+        route: g.code,
+        originEn: g.orig_en || "",
+        originTc: g.orig_tc || "",
+        destEn: g.dest_en || "",
+        destTc: g.dest_tc || "",
+        directionLabel: g.route_seq === 1 ? "去程" : "回程",
+        gmb: {
+          region: g.region,
+          code: g.code,
+          route_id: g.route_id,
+          route_seq: g.route_seq,
+        },
+      });
+    }
+  } catch {
+    /* GMB index optional */
+  }
+
   return q ? routes : routes.slice(0, 100);
 }
 
 export async function getRouteStops(
   route: string,
-  operator: "KMB" | "CTB" | "LWB" | null,
-  bound: string = "O"
-): Promise<{ stop: string; seq: number }[]> {
+  operator: "KMB" | "CTB" | "LWB" | "GMB" | null,
+  bound: string = "O",
+  gmbMeta?: { region: string; code: string; route_id: number; route_seq: number }
+): Promise<RouteStopSeq[]> {
+  // Green minibus: bundled per-route JSON (has coords + names)
+  if (operator === "GMB" && gmbMeta) {
+    const { region, code, route_seq } = gmbMeta;
+    try {
+      const j = await plainFetch(
+        `gmb/routes/${encodeURIComponent(region)}-${encodeURIComponent(code)}.json`
+      );
+      const dir =
+        (j.directions || []).find((d: any) => d.route_seq === route_seq) ||
+        j.directions?.[0];
+      if (!dir) return [];
+      return (dir.stops || []).map((s: any) => ({
+        stop: String(s.stop_id),
+        seq: s.seq,
+        lat: s.lat ?? undefined,
+        lng: s.lng ?? undefined,
+        name_tc: s.name_tc,
+        name_en: s.name_en,
+      }));
+    } catch {
+      return [];
+    }
+  }
   if (operator === "CTB") {
     const dir = bound === "I" || bound === "inbound" ? "inbound" : "outbound";
     const res = await plainFetch(`${CTB_BASE}/route-stop/CTB/${route}/${dir}`).catch(
@@ -142,9 +207,17 @@ export async function getRouteStops(
 
 export interface ETAQuery {
   stopId?: string;
-  operator?: "KMB" | "CTB" | null;
+  operator?: "KMB" | "CTB" | "GMB" | null;
   originalId?: string;
   routes?: string; // comma separated, for CTB
+  gmb?: {
+    route_id: number;
+    route_seq: number;
+    stop_seq: number;
+    code: string;
+    dest_tc: string;
+    dest_en: string;
+  };
 }
 
 function cleanKmbId(stopId: string, originalId?: string) {
@@ -154,8 +227,35 @@ function cleanKmbId(stopId: string, originalId?: string) {
 
 export async function getETAs(query: ETAQuery): Promise<ETA[]> {
   const { stopId, operator, originalId, routes } = query;
-  if (!stopId && !originalId) return [];
+  if (!stopId && !originalId && !(operator === "GMB" && query.gmb)) return [];
   let etas: ETA[] = [];
+
+  // Green minibus via the dedicated CORS proxy (official API has no CORS)
+  if (operator === "GMB" && query.gmb) {
+    const { route_id, route_seq, stop_seq, code, dest_tc, dest_en } = query.gmb;
+    try {
+      const j = await plainFetch(
+        `${GMB_PROXY}eta/route-stop/${route_id}/${route_seq}/${stop_seq}`
+      );
+      const list = j?.data?.eta || [];
+      etas = list.map((e: any, i: number) => ({
+        id: `gmb-${route_id}-${route_seq}-${stop_seq}-${e.eta_seq ?? i}`,
+        operator: "GMB" as const,
+        route: code,
+        destEn: dest_en,
+        destTc: dest_tc,
+        eta: e.timestamp || null,
+        etaMinutes: typeof e.diff === "number" ? Math.max(0, e.diff) : null,
+        remarkEn: e.remarks_en || undefined,
+        remarkTc: e.remarks_tc || undefined,
+        sequence: e.eta_seq ?? i + 1,
+        isRealtime: !!e.remarks_en && e.remarks_en !== "Scheduled",
+      }));
+    } catch {
+      etas = [];
+    }
+    return etas;
+  }
 
   if (operator === "KMB" || !operator) {
     const cleanId = cleanKmbId(stopId!, originalId);

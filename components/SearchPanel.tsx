@@ -338,7 +338,7 @@ export default function SearchPanel({
       </div>
 
       <div className="flex-1 overflow-y-auto overscroll-contain px-3 pb-4">
-        {selectedStop && mode === "stops" && (
+        {selectedStop && (
           <div className="mb-4">
             <div className="bg-slate-50 rounded-2xl p-4 mb-3">
               <div className="flex items-start justify-between gap-3">

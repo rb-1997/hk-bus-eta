@@ -20,6 +20,8 @@ interface SearchPanelProps {
   stops: BusStop[];
   selectedStop: BusStop | null;
   onSelectStop: (stop: BusStop | null) => void;
+  selectedRoute: BusRoute | null;
+  onSelectRoute: (route: BusRoute | null) => void;
   userLat: number;
   userLng: number;
   onLocate: () => void;
@@ -117,6 +119,8 @@ export default function SearchPanel({
   stops,
   selectedStop,
   onSelectStop,
+  selectedRoute,
+  onSelectRoute,
   userLat,
   userLng,
   onLocate,
@@ -145,7 +149,7 @@ export default function SearchPanel({
   } = useETA(selectedStop);
 
   const { routes: searchedRoutes, isLoading: routesLoading } = useRouteSearch(routeQuery);
-  const [selectedRoute, setSelectedRoute] = useState<BusRoute | null>(null);
+  const setSelectedRoute = onSelectRoute;
 
   const operatorForApi =
     selectedRoute?.operator === "LWB" ? "KMB" : selectedRoute?.operator ?? null;
@@ -242,7 +246,10 @@ export default function SearchPanel({
 
   const handleSelectStop = (stop: BusStop) => {
     onSelectStop(stop);
-    setSelectedRoute(null);
+    // Keep GMB route path visible when tapping its own stops
+    if (!stop.id.startsWith("gmb-")) {
+      setSelectedRoute(null);
+    }
     setMode("stops");
     if (isMobileSheet && onToggleSheet && !sheetExpanded) onToggleSheet();
   };

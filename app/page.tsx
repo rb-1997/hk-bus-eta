@@ -34,6 +34,7 @@ export default function HomePage() {
   const { favorites, isFavorite, toggleFavorite, loaded: favLoaded } = useFavorites();
 
   const [selectedStop, setSelectedStop] = useState<BusStop | null>(null);
+  const [selectedRoute, setSelectedRoute] = useState<BusRoute | null>(null);
   const [routePath, setRoutePath] = useState<{ lat: number; lng: number }[] | null>(null);
   const [routePathStops, setRoutePathStops] = useState<PathStopMarker[] | null>(null);
   const [highlightedRoute, setHighlightedRoute] = useState<BusRoute | null>(null);
@@ -68,6 +69,15 @@ export default function HomePage() {
         setRoutePathStops(null);
         setHighlightedRoute(null);
       }
+    }
+  }, []);
+
+  const handleSelectRoute = useCallback((route: BusRoute | null) => {
+    setSelectedRoute(route);
+    if (!route) {
+      setRoutePath(null);
+      setRoutePathStops(null);
+      setHighlightedRoute(null);
     }
   }, []);
 
@@ -145,6 +155,8 @@ export default function HomePage() {
           stops={stops}
           selectedStop={selectedStop}
           onSelectStop={handleSelectStop}
+          selectedRoute={selectedRoute}
+          onSelectRoute={handleSelectRoute}
           userLat={userLat}
           userLng={userLng}
           onLocate={requestLocation}
@@ -166,6 +178,8 @@ export default function HomePage() {
           stops={stops}
           selectedStop={selectedStop}
           onSelectStop={handleSelectStop}
+          selectedRoute={selectedRoute}
+          onSelectRoute={handleSelectRoute}
           userLat={userLat}
           userLng={userLng}
           onLocate={requestLocation}

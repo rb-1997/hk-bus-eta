@@ -1,6 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  output: "export", // static build for GitHub Pages ( APIs talk CORS-direct )
+  basePath: "/hk-bus-eta", // project pages URL: rb-1997.github.io/hk-bus-eta
   images: {
     unoptimized: true,
   },

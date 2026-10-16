@@ -124,6 +124,7 @@ function RouteStopRow({
   route,
   gmbMeta,
   kmbStopId,
+  ctbStopId,
 }: {
   seq: number;
   nameTc?: string;
@@ -131,13 +132,16 @@ function RouteStopRow({
   route: BusRoute;
   gmbMeta?: { region: string; code: string; route_id: number; route_seq: number };
   kmbStopId?: string;
+  ctbStopId?: string;
 }) {
   const { data: etas } = useSWR(
     route.operator === "GMB" && gmbMeta
       ? (["route-stop-eta-gmb", gmbMeta.route_id, gmbMeta.route_seq, seq] as const)
       : route.operator === "KMB" && kmbStopId
         ? (["route-stop-eta-kmb", kmbStopId, route.route] as const)
-        : null,
+        : route.operator === "CTB" && ctbStopId
+          ? (["route-stop-eta-ctb", ctbStopId, route.route] as const)
+          : null,
     async (key: readonly [string, ...unknown[]]) => {
       if (key[0] === "route-stop-eta-gmb" && gmbMeta) {
         const { getETAs } = await import("@/utils/static-api");
@@ -156,11 +160,34 @@ function RouteStopRow({
         const { getETAs } = await import("@/utils/static-api");
         const all = await getETAs({ operator: "KMB", originalId: kmbStopId });
         return all.filter((e) => e.route === route.route).slice(0, 3);
+      } else if (key[0] === "route-stop-eta-ctb" && ctbStopId) {
+        const { getETAs } = await import("@/utils/static-api");
+        return getETAs({ operator: "CTB", originalId: ctbStopId, routes: route.route });
       }
       return [];
     },
     { revalidateOnFocus: false, dedupingInterval: 30000, errorRetryCount: 1 }
   );
+
+  // For CTB: fetch stop name if not already known (CTB stops aren't in the global list)
+  const { data: ctbName } = useSWR(
+    route.operator === "CTB" && ctbStopId && !nameTc
+      ? (["ctb-stop-name", ctbStopId] as const)
+      : null,
+    async () => {
+      const { normalizeCTBStop } = await import("@/utils/api");
+      const res = await fetch(`https://rt.data.gov.hk/v2/transport/citybus/stop/${ctbStopId}`).then((r) => r.json()).catch(() => null);
+      if (res?.data) {
+        const n = normalizeCTBStop(res.data);
+        return { nameTc: n.nameTc, nameEn: n.nameEn };
+      }
+      return null;
+    },
+    { revalidateOnFocus: false, dedupingInterval: 86400000, errorRetryCount: 1 }
+  );
+
+  const displayTc = nameTc || ctbName?.nameTc;
+  const displayEn = nameEn || ctbName?.nameEn;
 
   const list = (etas || []).slice(0, 3);
   return (
@@ -170,10 +197,10 @@ function RouteStopRow({
       </div>
       <div className="min-w-0 flex-1">
         <div className="text-[14px] font-medium text-slate-900 truncate">
-          {nameTc || nameEn}
+          {displayTc || displayEn || `Stop ${seq}`}
         </div>
-        {nameTc && nameEn && nameTc !== nameEn && (
-          <div className="text-[12px] text-slate-400 truncate">{nameEn}</div>
+        {displayTc && displayEn && displayTc !== displayEn && (
+          <div className="text-[12px] text-slate-400 truncate">{displayEn}</div>
         )}
       </div>
       <div className="shrink-0 text-right">
@@ -231,6 +258,7 @@ function RouteStopsList({
             nameEn: ss.name_en,
             gmbMeta: route.gmb,
             kmbStopId: undefined as string | undefined,
+            ctbStopId: undefined as string | undefined,
           };
         }
         const found = byOrig.get(ss.stop);
@@ -240,6 +268,7 @@ function RouteStopsList({
           nameEn: found?.nameEn,
           gmbMeta: undefined,
           kmbStopId: route.operator === "KMB" ? ss.stop : undefined,
+          ctbStopId: route.operator === "CTB" ? ss.stop : undefined,
         };
       });
   }, [stopSeqs, stops, route]);
@@ -260,6 +289,7 @@ function RouteStopsList({
             route={route}
             gmbMeta={s.gmbMeta}
             kmbStopId={s.kmbStopId}
+            ctbStopId={s.ctbStopId}
           />
         ))}
       </div>

@@ -20,6 +20,7 @@ let stopsCacheAt = 0;
 let routesCache: { kmb: any[]; ctb: any[] } | null = null;
 let routesCacheAt = 0;
 let gmbIndexCache: any[] | null = null;
+let mtrIndexCache: any[] | null = null;
 const STOPS_TTL = 24 * 3600 * 1000;
 const ROUTES_TTL = 24 * 3600 * 1000;
 
@@ -187,15 +188,64 @@ export async function searchRoutes(query: string): Promise<BusRoute[]> {
     /* GMB index optional */
   }
 
+  // MTR Bus (bundled static index from opendata.mtr.com.hk)
+  try {
+    if (!mtrIndexCache) {
+      mtrIndexCache = await plainFetch("mtr/index.json").catch(() => []);
+    }
+    for (const m of mtrIndexCache || []) {
+      if (
+        q &&
+        !m.route.toUpperCase().includes(q) &&
+        !(m.dest_tc || "").includes(query.trim()) &&
+        !(m.orig_tc || "").includes(query.trim()) &&
+        !(m.dest_en || "").toUpperCase().includes(q) &&
+        !(m.orig_en || "").toUpperCase().includes(q)
+      ) {
+        continue;
+      }
+      routes.push({
+        id: `MTR-${m.route}-${m.dir}`,
+        operator: "MTR",
+        route: m.route,
+        bound: m.dir as "I" | "O",
+        originEn: m.origin_en || "",
+        originTc: m.origin_tc || "",
+        destEn: m.dest_en || "",
+        destTc: m.dest_tc || "",
+        directionLabel: m.dir === "I" ? "Inbound" : "Outbound",
+      });
+    }
+  } catch {
+    /* MTR index optional */
+  }
+
   return q ? routes : routes.slice(0, 100);
 }
 
 export async function getRouteStops(
   route: string,
-  operator: "KMB" | "CTB" | "LWB" | "GMB" | null,
+  operator: "KMB" | "CTB" | "LWB" | "GMB" | "MTR" | null,
   bound: string = "O",
   gmbMeta?: { region: string; code: string; route_id: number; route_seq: number }
 ): Promise<RouteStopSeq[]> {
+  // MTR Bus: bundled per-route JSON from opendata.mtr.com.hk (has coords + names)
+  if (operator === "MTR") {
+    const dir = bound === "I" || bound === "inbound" ? "I" : "O";
+    try {
+      const j = await plainFetch(`mtr/routes/${encodeURIComponent(route)}-${dir}.json`);
+      return (j.stops || []).map((s: any) => ({
+        stop: String(s.stop_id),
+        seq: s.seq,
+        lat: s.lat ?? undefined,
+        lng: s.lng ?? undefined,
+        name_tc: s.name_tc,
+        name_en: s.name_en,
+      }));
+    } catch {
+      return [];
+    }
+  }
   // Green minibus: bundled per-route JSON (has coords + names)
   if (operator === "GMB" && gmbMeta) {
     const { region, code, route_seq } = gmbMeta;
@@ -240,7 +290,7 @@ export async function getRouteStops(
 
 export interface ETAQuery {
   stopId?: string;
-  operator?: "KMB" | "CTB" | "GMB" | null;
+  operator?: "KMB" | "CTB" | "GMB" | "MTR" | null;
   originalId?: string;
   routes?: string; // comma separated, for CTB
   gmb?: {
@@ -248,6 +298,12 @@ export interface ETAQuery {
     route_seq: number;
     stop_seq: number;
     code: string;
+    dest_tc: string;
+    dest_en: string;
+  };
+  mtr?: {
+    routeName: string; // e.g. "K52"
+    stopId: string; // e.g. "K52-nD010"
     dest_tc: string;
     dest_en: string;
   };
@@ -260,8 +316,43 @@ function cleanKmbId(stopId: string, originalId?: string) {
 
 export async function getETAs(query: ETAQuery): Promise<ETA[]> {
   const { stopId, operator, originalId, routes } = query;
-  if (!stopId && !originalId && !(operator === "GMB" && query.gmb)) return [];
+  if (!stopId && !originalId && !(operator === "GMB" && query.gmb) && !(operator === "MTR" && query.mtr)) return [];
   let etas: ETA[] = [];
+
+  // MTR Bus via rt.data.gov.hk (has CORS *, POST API)
+  if (operator === "MTR" && query.mtr) {
+    const { routeName, stopId: mtrStopId, dest_tc, dest_en } = query.mtr;
+    try {
+      const res = await fetch("https://rt.data.gov.hk/v1/transport/mtr/bus/getSchedule", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ language: "zh", routeName }),
+      }).then((r) => r.json());
+      const stop = (res.busStop || []).find((s: any) => s.busStopId === mtrStopId);
+      if (stop) {
+        etas = (stop.bus || []).slice(0, 3).map((b: any, i: number) => {
+          const secs = parseInt(b.departureTimeInSecond || "0", 10);
+          const mins = secs >= 108000 ? null : Math.max(0, Math.round(secs / 60));
+          return {
+            id: `mtr-${routeName}-${mtrStopId}-${i}`,
+            operator: "MTR" as const,
+            route: routeName,
+            destEn: dest_en,
+            destTc: dest_tc,
+            eta: null,
+            etaMinutes: mins,
+            remarkEn: b.departureTimeText || undefined,
+            remarkTc: b.departureTimeText || undefined,
+            sequence: i + 1,
+            isRealtime: b.isScheduled !== "1",
+          };
+        });
+      }
+    } catch {
+      etas = [];
+    }
+    return etas;
+  }
 
   // Green minibus via the dedicated CORS proxy (official API has no CORS)
   if (operator === "GMB" && query.gmb) {

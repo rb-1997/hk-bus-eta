@@ -1,4 +1,4 @@
-export type Operator = "KMB" | "CTB" | "LWB" | "GMB";
+export type Operator = "KMB" | "CTB" | "LWB" | "GMB" | "MTR";
 
 export interface BusStop {
   id: string; // unified or original

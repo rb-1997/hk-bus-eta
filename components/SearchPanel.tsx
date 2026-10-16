@@ -55,6 +55,13 @@ function OperatorBadge({ operator }: { operator: string }) {
       </span>
     );
   }
+  if (operator === "MTR") {
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold tracking-wide bg-[#c0392b] text-white shadow-sm">
+        港鐵
+      </span>
+    );
+  }
   return (
     <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold tracking-wide bg-blue-600 text-white shadow-sm">
       CTB
@@ -125,6 +132,7 @@ function RouteStopRow({
   gmbMeta,
   kmbStopId,
   ctbStopId,
+  mtrMeta,
 }: {
   seq: number;
   nameTc?: string;
@@ -133,6 +141,7 @@ function RouteStopRow({
   gmbMeta?: { region: string; code: string; route_id: number; route_seq: number };
   kmbStopId?: string;
   ctbStopId?: string;
+  mtrMeta?: { routeName: string; stopId: string };
 }) {
   const { data: etas } = useSWR(
     route.operator === "GMB" && gmbMeta
@@ -141,7 +150,9 @@ function RouteStopRow({
         ? (["route-stop-eta-kmb", kmbStopId, route.route] as const)
         : route.operator === "CTB" && ctbStopId
           ? (["route-stop-eta-ctb", ctbStopId, route.route] as const)
-          : null,
+          : route.operator === "MTR" && mtrMeta
+            ? (["route-stop-eta-mtr", mtrMeta.routeName, mtrMeta.stopId] as const)
+            : null,
     async (key: readonly [string, ...unknown[]]) => {
       if (key[0] === "route-stop-eta-gmb" && gmbMeta) {
         const { getETAs } = await import("@/utils/static-api");
@@ -163,6 +174,17 @@ function RouteStopRow({
       } else if (key[0] === "route-stop-eta-ctb" && ctbStopId) {
         const { getETAs } = await import("@/utils/static-api");
         return getETAs({ operator: "CTB", originalId: ctbStopId, routes: route.route });
+      } else if (key[0] === "route-stop-eta-mtr" && mtrMeta) {
+        const { getETAs } = await import("@/utils/static-api");
+        return getETAs({
+          operator: "MTR",
+          mtr: {
+            routeName: mtrMeta.routeName,
+            stopId: mtrMeta.stopId,
+            dest_tc: route.destTc,
+            dest_en: route.destEn,
+          },
+        });
       }
       return [];
     },
@@ -259,6 +281,9 @@ function RouteStopsList({
             gmbMeta: route.gmb,
             kmbStopId: undefined as string | undefined,
             ctbStopId: undefined as string | undefined,
+            mtrMeta: route.operator === "MTR"
+              ? { routeName: route.route, stopId: ss.stop }
+              : undefined,
           };
         }
         const found = byOrig.get(ss.stop);
@@ -269,6 +294,7 @@ function RouteStopsList({
           gmbMeta: undefined,
           kmbStopId: route.operator === "KMB" ? ss.stop : undefined,
           ctbStopId: route.operator === "CTB" ? ss.stop : undefined,
+          mtrMeta: undefined,
         };
       });
   }, [stopSeqs, stops, route]);
@@ -290,6 +316,7 @@ function RouteStopsList({
             gmbMeta={s.gmbMeta}
             kmbStopId={s.kmbStopId}
             ctbStopId={s.ctbStopId}
+            mtrMeta={s.mtrMeta}
           />
         ))}
       </div>

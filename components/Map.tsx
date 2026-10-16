@@ -233,9 +233,11 @@ export default function Map({
               color:
                 highlightedRoute?.operator === "GMB"
                   ? "#16a34a"
-                  : highlightedRoute?.operator === "KMB"
-                    ? "#E30613"
-                    : "#003DA5",
+                  : highlightedRoute?.operator === "MTR"
+                    ? "#c0392b"
+                    : highlightedRoute?.operator === "KMB"
+                      ? "#E30613"
+                      : "#003DA5",
               weight: 5,
               opacity: 0.75,
             }}

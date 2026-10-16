@@ -98,7 +98,7 @@ function ETAItem({ eta }: { eta: ETA }) {
             {eta.route}
           </div>
           <div className="text-[13px] text-slate-500 truncate mt-0.5">
-            to {eta.destEn}
+            {eta.destTc ? `${eta.destTc} · ` : ""}to {eta.destEn}
           </div>
         </div>
       </div>
@@ -508,8 +508,13 @@ export default function SearchPanel({
                         )}
                       </div>
                       <div className="text-[13px] text-slate-500 truncate mt-0.5">
-                        {r.originEn} → {r.destEn}
+                        {r.originTc || r.originEn} → {r.destTc || r.destEn}
                       </div>
+                      {(r.originEn || r.destEn) && (r.originTc || r.destTc) && (
+                        <div className="text-[12px] text-slate-400 truncate">
+                          {r.originEn} → {r.destEn}
+                        </div>
+                      )}
                     </div>
                   </button>
                 ))}

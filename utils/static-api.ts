@@ -422,3 +422,117 @@ export async function getETAs(query: ETAQuery): Promise<ETA[]> {
     return true;
   });
 }
+
+// Cache for stop-links.json
+let stopLinksCache: Record<string, {ctb: any[], mtr: any[], gmb: any[]}> | null = null;
+async function getStopLinks() {
+  if (!stopLinksCache) {
+    stopLinksCache = await plainFetch("stop-links.json").catch(() => ({}));
+  }
+  return stopLinksCache || {};
+}
+
+// Cache for CTB stop -> routes
+let ctbStopRoutesCache: Record<string, string[]> | null = null;
+async function getCtbStopRoutes() {
+  if (!ctbStopRoutesCache) {
+    ctbStopRoutesCache = await plainFetch("ctb/stop-routes.json").catch(() => ({}));
+  }
+  return ctbStopRoutesCache || {};
+}
+
+/**
+ * Get ETAs from ALL operators serving a stop (via cross-operator stop links).
+ * For a KMB stop, also queries nearby CTB/MTR/GMB stops.
+ */
+export async function getAllETAsForStop(
+  stop: { id: string; originalIds: { operator: string; id: string }[]; gmb?: any }
+): Promise<ETA[]> {
+  const allEtas: ETA[] = [];
+  const promises: Promise<ETA[]>[] = [];
+
+  // 1. Primary operator ETAs (existing logic)
+  const kmbOrig = stop.originalIds.find((o) => o.operator === "KMB");
+  const ctbOrig = stop.originalIds.find((o) => o.operator === "CTB");
+  if (stop.gmb) {
+    promises.push(getETAs({ operator: "GMB", gmb: stop.gmb }));
+  } else if (kmbOrig) {
+    promises.push(getETAs({ stopId: stop.id, operator: "KMB", originalId: kmbOrig.id }));
+  } else if (ctbOrig) {
+    // CTB stop without known routes - try to get routes from stop-links or skip
+    promises.push(getETAs({ stopId: stop.id, operator: "CTB", originalId: ctbOrig.id, routes: "" }));
+  }
+
+  // 2. Cross-operator linked stops
+  try {
+    const links = await getStopLinks();
+    // Try multiple ID formats (kmb-xxx, merged-xxx, raw)
+    const linkKey = Object.keys(links).find(k => stop.id.includes(k) || k.includes(stop.id.replace(/^kmb-/, '').replace(/^merged-[^-]+-/, '')));
+    const link = linkKey ? links[linkKey] : links[stop.id];
+    if (link) {
+      // CTB linked stops: query ETA for all routes at that CTB stop
+      const ctbRoutes = await getCtbStopRoutes();
+      for (const ctb of (link.ctb || []).slice(0, 2)) {
+        const routes = (ctbRoutes[ctb.id] || []).slice(0, 5).join(",");
+        if (routes) {
+          promises.push(
+            getETAs({ operator: "CTB", originalId: ctb.id, routes }).catch(() => [] as ETA[])
+          );
+        }
+      }
+      // MTR linked stops
+      for (const mtr of (link.mtr || []).slice(0, 3)) {
+        promises.push(
+          getETAs({
+            operator: "MTR",
+            mtr: {
+              routeName: mtr.route,
+              stopId: mtr.id,
+              dest_tc: mtr.name_tc,
+              dest_en: mtr.name_en,
+            },
+          })
+        );
+      }
+      // GMB linked stops (limit to avoid too many proxy calls)
+      for (const g of (link.gmb || []).slice(0, 2)) {
+        for (const rd of (g.routes_detail || []).slice(0, 2)) {
+          promises.push(
+            getETAs({
+              operator: "GMB",
+              gmb: {
+                route_id: rd.route_id,
+                route_seq: rd.route_seq,
+                stop_seq: rd.stop_seq,
+                code: rd.code,
+                dest_tc: rd.dest_tc,
+                dest_en: rd.dest_en,
+              },
+            })
+          );
+        }
+      }
+    }
+  } catch {
+    /* links optional */
+  }
+
+  const results = await Promise.allSettled(promises);
+  for (const r of results) {
+    if (r.status === "fulfilled") allEtas.push(...r.value);
+  }
+
+  // Sort and dedupe
+  allEtas.sort((a, b) => {
+    if (a.etaMinutes === null) return 1;
+    if (b.etaMinutes === null) return -1;
+    return a.etaMinutes - b.etaMinutes;
+  });
+  const seen = new Set<string>();
+  return allEtas.filter((e) => {
+    const key = `${e.operator}-${e.route}-${e.destEn}-${e.sequence}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}

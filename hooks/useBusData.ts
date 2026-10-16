@@ -5,6 +5,7 @@ import type { BusStop, ETA, BusRoute, RouteStopSeq } from "@/types/bus";
 import {
   getStops,
   getETAs,
+  getAllETAsForStop,
   searchRoutes,
   getRouteStops,
 } from "@/utils/static-api";
@@ -33,42 +34,15 @@ export function useETA(
   stop: BusStop | null,
   enabled = true
 ) {
-  // Build query: use first originalId preferably KMB
-  let key: [string, object] | null = null;
+  // Use getAllETAsForStop which queries all linked operators (KMB+CTB+MTR+GMB)
+  let key: [string, string] | null = null;
   if (stop && enabled) {
-    const kmbOrig = stop.originalIds.find((o) => o.operator === "KMB");
-    const ctbOrig = stop.originalIds.find((o) => o.operator === "CTB");
-    const query: {
-      stopId: string;
-      operator?: "KMB" | "CTB" | "GMB";
-      originalId?: string;
-      routes?: string;
-      gmb?: {
-        route_id: number;
-        route_seq: number;
-        stop_seq: number;
-        code: string;
-        dest_tc: string;
-        dest_en: string;
-      };
-    } = { stopId: stop.id };
-    if (stop.gmb) {
-      query.operator = "GMB";
-      query.gmb = stop.gmb;
-    } else if (kmbOrig) {
-      query.operator = "KMB";
-      query.originalId = kmbOrig.id;
-    } else if (ctbOrig) {
-      query.operator = "CTB";
-      query.originalId = ctbOrig.id;
-      // For CTB alone, we can't easily know all routes without extra data; ETA will be empty or user uses route search
-    }
-    key = ["eta", query];
+    key = ["eta-all", stop.id];
   }
 
   const { data, error, isLoading, isValidating, mutate } = useSWR<ETA[]>(
     key,
-    (k: [string, object]) => getETAs(k[1] as Parameters<typeof getETAs>[0]),
+    () => getAllETAsForStop(stop!),
     {
       refreshInterval: 60000, // auto every 60s as backup
       revalidateOnFocus: true,

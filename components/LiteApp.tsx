@@ -1,0 +1,770 @@
+"use client";
+
+import { useState, useMemo, useEffect, useRef } from "react";
+import useSWR from "swr";
+import {
+  Search,
+  MapPin,
+  Star,
+  StarOff,
+  X,
+  LocateFixed,
+  RefreshCw,
+  ChevronDown,
+  Bus,
+  Navigation,
+} from "lucide-react";
+import type { BusStop, ETA, BusRoute, FavoriteRoute, RouteStopSeq } from "@/types/bus";
+import { useETA, useRouteSearch, useRouteStops, useStops } from "@/hooks/useBusData";
+import { useGeolocation } from "@/hooks/useGeolocation";
+import { useFavorites } from "@/hooks/useFavorites";
+import { useFavoriteRoutes } from "@/hooks/useFavoriteRoutes";
+import { findClosestStops, haversineDistance } from "@/utils/geo";
+import clsx from "clsx";
+
+/* ---------- shared bits ---------- */
+
+function OperatorBadge({ operator }: { operator: string }) {
+  if (operator === "KMB" || operator === "LWB") {
+    return (
+      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-500 text-white shrink-0">
+        九巴
+      </span>
+    );
+  }
+  if (operator === "GMB") {
+    return (
+      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-600 text-white shrink-0">
+        小巴
+      </span>
+    );
+  }
+  if (operator === "MTR") {
+    return (
+      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#c0392b] text-white shrink-0">
+        港鐵
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-600 text-white shrink-0">
+      城巴
+    </span>
+  );
+}
+
+function etaText(e: ETA): string {
+  if (e.etaMinutes === null) return e.remarkTc || e.remarkEn || "—";
+  if (e.etaMinutes <= 0) return "即將到站";
+  return `${e.etaMinutes} 分鐘`;
+}
+
+function etaColor(e: ETA): string {
+  if (e.etaMinutes === null) return "text-slate-400";
+  if (e.etaMinutes <= 1) return "text-emerald-600";
+  if (e.etaMinutes <= 5) return "text-amber-600";
+  return "text-slate-700";
+}
+
+/* ---------- nearby stop card with live ETAs ---------- */
+
+function NearbyStopCard({
+  stop,
+  distance,
+  isFavorite,
+  toggleFavorite,
+  defaultExpanded,
+}: {
+  stop: BusStop;
+  distance: number;
+  isFavorite: (id: string) => boolean;
+  toggleFavorite: (stop: BusStop) => void;
+  defaultExpanded: boolean;
+}) {
+  const [expanded, setExpanded] = useState(defaultExpanded);
+  const { etas, isLoading, refresh } = useETA(stop, true);
+  const fav = isFavorite(stop.id);
+
+  const shown = expanded ? etas : etas.slice(0, 4);
+
+  return (
+    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+      <button
+        onClick={() => setExpanded((e) => !e)}
+        className="w-full text-left px-4 py-3 flex items-start gap-3 active:bg-slate-50"
+      >
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <span className="font-semibold text-slate-900 text-[15px] truncate">
+              {stop.nameTc || stop.nameEn}
+            </span>
+            <span className="text-[11px] text-sky-600 font-medium tabular-nums shrink-0">
+              {distance < 1000 ? `${Math.round(distance)}m` : `${(distance / 1000).toFixed(1)}km`}
+            </span>
+          </div>
+          {stop.nameTc && stop.nameEn && stop.nameTc !== stop.nameEn && (
+            <div className="text-[12px] text-slate-400 truncate mt-0.5">{stop.nameEn}</div>
+          )}
+        </div>
+        <ChevronDown
+          className={clsx("w-5 h-5 text-slate-400 shrink-0 mt-0.5 transition-transform", expanded && "rotate-180")}
+        />
+      </button>
+
+      <div className="px-4 pb-1">
+        {isLoading && etas.length === 0 ? (
+          <div className="py-3 text-[13px] text-slate-400">載入班次中…</div>
+        ) : shown.length === 0 ? (
+          <div className="py-3 text-[13px] text-slate-400">暫時冇班次資料</div>
+        ) : (
+          shown.map((e) => (
+            <div key={e.id} className="flex items-center gap-2 py-2 border-t border-slate-50">
+              <OperatorBadge operator={e.operator} />
+              <span className="font-bold text-slate-900 text-[14px] tabular-nums">{e.route}</span>
+              <span className="text-[12px] text-slate-500 truncate flex-1">
+                往 {e.destTc || e.destEn}
+              </span>
+              <span className={clsx("text-[13px] font-semibold tabular-nums shrink-0", etaColor(e))}>
+                {etaText(e)}
+              </span>
+            </div>
+          ))
+        )}
+      </div>
+
+      <div className="flex items-center justify-between px-4 py-2 bg-slate-50/60">
+        <button
+          onClick={() => refresh()}
+          className="flex items-center gap-1 text-[12px] text-slate-500 active:text-sky-600"
+        >
+          <RefreshCw className="w-3.5 h-3.5" />
+          更新
+        </button>
+        <button
+          onClick={() => toggleFavorite(stop)}
+          className="flex items-center gap-1 text-[12px] text-slate-500 active:text-amber-500"
+          aria-label="收藏車站"
+        >
+          {fav ? (
+            <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
+          ) : (
+            <StarOff className="w-4 h-4" />
+          )}
+          {fav ? "已收藏" : "收藏車站"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- route stop row (per-stop live ETA) ---------- */
+
+function LiteRouteStopRow({
+  seq,
+  nameTc,
+  nameEn,
+  route,
+  gmbMeta,
+  kmbStopId,
+  ctbStopId,
+  mtrMeta,
+}: {
+  seq: number;
+  nameTc?: string;
+  nameEn?: string;
+  route: BusRoute;
+  gmbMeta?: { region: string; code: string; route_id: number; route_seq: number };
+  kmbStopId?: string;
+  ctbStopId?: string;
+  mtrMeta?: { routeName: string; stopId: string };
+}) {
+  const { data: etas } = useSWR(
+    route.operator === "GMB" && gmbMeta
+      ? (["lite-eta-gmb", gmbMeta.route_id, gmbMeta.route_seq, seq] as const)
+      : route.operator === "KMB" && kmbStopId
+        ? (["lite-eta-kmb", kmbStopId, route.route] as const)
+        : route.operator === "CTB" && ctbStopId
+          ? (["lite-eta-ctb", ctbStopId, route.route] as const)
+          : route.operator === "MTR" && mtrMeta
+            ? (["lite-eta-mtr", mtrMeta.routeName, mtrMeta.stopId] as const)
+            : null,
+    async (key: readonly [string, ...unknown[]]) => {
+      const { getETAs } = await import("@/utils/static-api");
+      if (key[0] === "lite-eta-gmb" && gmbMeta) {
+        return getETAs({
+          operator: "GMB",
+          gmb: {
+            route_id: gmbMeta.route_id,
+            route_seq: gmbMeta.route_seq,
+            stop_seq: seq,
+            code: gmbMeta.code,
+            dest_tc: route.destTc,
+            dest_en: route.destEn,
+          },
+        });
+      } else if (key[0] === "lite-eta-kmb" && kmbStopId) {
+        const all = await getETAs({ operator: "KMB", originalId: kmbStopId });
+        return all.filter((e) => e.route === route.route).slice(0, 3);
+      } else if (key[0] === "lite-eta-ctb" && ctbStopId) {
+        return getETAs({ operator: "CTB", originalId: ctbStopId, routes: route.route });
+      } else if (key[0] === "lite-eta-mtr" && mtrMeta) {
+        return getETAs({
+          operator: "MTR",
+          mtr: {
+            routeName: mtrMeta.routeName,
+            stopId: mtrMeta.stopId,
+            dest_tc: route.destTc,
+            dest_en: route.destEn,
+          },
+        });
+      }
+      return [];
+    },
+    { revalidateOnFocus: false, dedupingInterval: 30000, errorRetryCount: 1 }
+  );
+
+  const { data: ctbName } = useSWR(
+    route.operator === "CTB" && ctbStopId && !nameTc
+      ? (["lite-ctb-name", ctbStopId] as const)
+      : null,
+    async () => {
+      const { normalizeCTBStop } = await import("@/utils/api");
+      const res = await fetch(`https://rt.data.gov.hk/v2/transport/citybus/stop/${ctbStopId}`)
+        .then((r) => r.json())
+        .catch(() => null);
+      if (res?.data) {
+        const n = normalizeCTBStop(res.data);
+        return { nameTc: n.nameTc, nameEn: n.nameEn };
+      }
+      return null;
+    },
+    { revalidateOnFocus: false, dedupingInterval: 86400000, errorRetryCount: 1 }
+  );
+
+  const displayTc = nameTc || ctbName?.nameTc;
+  const displayEn = nameEn || ctbName?.nameEn;
+  const list = (etas || []).slice(0, 3);
+
+  return (
+    <div className="flex items-center gap-3 py-2.5 px-1 border-b border-slate-100 last:border-0">
+      <div className="w-7 h-7 rounded-full bg-slate-100 text-slate-600 text-[12px] font-semibold flex items-center justify-center shrink-0 tabular-nums">
+        {seq}
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="text-[14px] font-medium text-slate-900 truncate">
+          {displayTc || displayEn || `第 ${seq} 站`}
+        </div>
+        {displayTc && displayEn && displayTc !== displayEn && (
+          <div className="text-[12px] text-slate-400 truncate">{displayEn}</div>
+        )}
+      </div>
+      <div className="shrink-0 text-right">
+        {!etas ? (
+          <span className="text-[12px] text-slate-300">…</span>
+        ) : list.length === 0 ? (
+          <span className="text-[12px] text-slate-300">—</span>
+        ) : (
+          <div className="flex flex-col items-end gap-0.5">
+            {list.map((e, i) => (
+              <span key={i} className={clsx("text-[13px] font-semibold tabular-nums", etaColor(e))}>
+                {etaText(e)}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function LiteRouteStopsList({
+  route,
+  stopSeqs,
+  stops,
+}: {
+  route: BusRoute;
+  stopSeqs: RouteStopSeq[];
+  stops: BusStop[];
+}) {
+  const enriched = useMemo(() => {
+    const byOrig = new Map<string, BusStop>();
+    stops.forEach((s) => {
+      s.originalIds.forEach((o) => byOrig.set(o.id, s));
+      byOrig.set(s.id, s);
+    });
+    return [...stopSeqs]
+      .sort((a, b) => a.seq - b.seq)
+      .map((ss) => {
+        if (ss.lat != null && ss.lng != null) {
+          return {
+            seq: ss.seq,
+            nameTc: ss.name_tc,
+            nameEn: ss.name_en,
+            gmbMeta: route.gmb,
+            kmbStopId: undefined as string | undefined,
+            ctbStopId: undefined as string | undefined,
+            mtrMeta:
+              route.operator === "MTR"
+                ? { routeName: route.route, stopId: ss.stop }
+                : undefined,
+          };
+        }
+        const found = byOrig.get(ss.stop);
+        return {
+          seq: Number(ss.seq) || 0,
+          nameTc: found?.nameTc,
+          nameEn: found?.nameEn,
+          gmbMeta: undefined,
+          kmbStopId: route.operator === "KMB" ? ss.stop : undefined,
+          ctbStopId: route.operator === "CTB" ? ss.stop : undefined,
+          mtrMeta: undefined,
+        };
+      });
+  }, [stopSeqs, stops, route]);
+
+  if (enriched.length === 0) return null;
+  return (
+    <div className="mt-3 bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+      <div className="px-4 py-2.5 bg-slate-50 text-[12px] font-semibold text-slate-500">
+        {route.route} · {enriched.length} 個站 · 即時到站
+      </div>
+      <div className="px-3 pb-2">
+        {enriched.map((s) => (
+          <LiteRouteStopRow
+            key={s.seq}
+            seq={s.seq}
+            nameTc={s.nameTc}
+            nameEn={s.nameEn}
+            route={route}
+            gmbMeta={s.gmbMeta}
+            kmbStopId={s.kmbStopId}
+            ctbStopId={s.ctbStopId}
+            mtrMeta={s.mtrMeta}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- main lite app ---------- */
+
+type Tab = "nearby" | "routes" | "favorites";
+
+export default function LiteApp() {
+  const [tab, setTab] = useState<Tab>("nearby");
+  const [favTab, setFavTab] = useState<"routes" | "stops">("routes");
+  const [routeQuery, setRouteQuery] = useState("");
+  const [selectedRoute, setSelectedRoute] = useState<BusRoute | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const {
+    lat: userLat,
+    lng: userLng,
+    loading: geoLoading,
+    permission,
+    requestLocation,
+  } = useGeolocation(true);
+
+  const { stops, isLoading: stopsLoading } = useStops();
+  const { favorites, isFavorite, toggleFavorite } = useFavorites();
+  const { favRoutes, isFavRoute, toggleFavRoute, removeFavRoute } = useFavoriteRoutes();
+  const { routes: searchedRoutes, isLoading: routesLoading } = useRouteSearch(routeQuery);
+
+  const operatorForApi =
+    selectedRoute?.operator === "LWB" ? "KMB" : selectedRoute?.operator ?? null;
+  const { stopSeqs, isLoading: stopsListLoading } = useRouteStops(
+    selectedRoute?.route || null,
+    operatorForApi,
+    selectedRoute?.bound || "O",
+    selectedRoute?.gmb
+  );
+
+  // Nearby stops within 800m, top 8
+  const nearby = useMemo(() => {
+    if (!userLat || !userLng || stops.length === 0) return [];
+    return findClosestStops(stops, userLat, userLng, 30)
+      .map((s) => ({ stop: s, dist: haversineDistance(userLat, userLng, s.lat, s.lng) }))
+      .filter((x) => x.dist <= 800)
+      .slice(0, 8);
+  }, [stops, userLat, userLng]);
+
+  const hasLocation = !!userLat && !!userLng;
+  const showLocatePrompt = !hasLocation && !geoLoading;
+
+  const handleSelectFavRoute = (fr: FavoriteRoute) => {
+    setSelectedRoute({
+      id: fr.id,
+      route: fr.route,
+      operator: fr.operator,
+      originTc: fr.originTc,
+      originEn: fr.originEn,
+      destTc: fr.destTc,
+      destEn: fr.destEn,
+      directionLabel: fr.directionLabel,
+      bound: fr.bound,
+      gmb: fr.gmb,
+    });
+    setTab("routes");
+  };
+
+  const favCount = favorites.length + favRoutes.length;
+
+  return (
+    <main className="h-[100dvh] w-full flex flex-col bg-slate-100 overflow-hidden">
+      {/* header */}
+      <header className="shrink-0 bg-white border-b border-slate-200 px-4 pt-3 pb-2.5">
+        <div className="flex items-center gap-2.5">
+          <button
+            onClick={requestLocation}
+            disabled={geoLoading}
+            className="flex items-center justify-center w-11 h-11 rounded-2xl bg-sky-500 text-white shadow-md shadow-sky-500/25 active:scale-95 transition disabled:opacity-60 shrink-0"
+            aria-label="定位"
+          >
+            <LocateFixed className={clsx("w-5 h-5", geoLoading && "animate-pulse")} />
+          </button>
+          <div className="relative flex-1">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <input
+              ref={inputRef}
+              type="text"
+              placeholder="搜路線，例如 261、44B1、K52"
+              value={routeQuery}
+              onChange={(e) => {
+                setRouteQuery(e.target.value);
+                setTab("routes");
+                setSelectedRoute(null);
+              }}
+              className="w-full h-11 pl-10 pr-9 rounded-2xl bg-slate-100 border-0 text-[15px] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500/40"
+            />
+            {routeQuery && (
+              <button
+                onClick={() => {
+                  setRouteQuery("");
+                  setSelectedRoute(null);
+                }}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
+                aria-label="清除"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* tabs */}
+        <div className="flex p-1 bg-slate-100 rounded-2xl mt-2.5">
+          {(
+            [
+              { id: "nearby", label: "附近", icon: MapPin },
+              { id: "routes", label: "路線", icon: Bus },
+              { id: "favorites", label: `★ ${favCount}`, icon: Star },
+            ] as const
+          ).map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id as Tab)}
+              className={clsx(
+                "flex-1 py-2 text-[13px] font-medium rounded-xl transition-all flex items-center justify-center gap-1",
+                tab === t.id
+                  ? "bg-white text-slate-900 shadow-sm"
+                  : "text-slate-500"
+              )}
+            >
+              <t.icon className="w-3.5 h-3.5" />
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </header>
+
+      {/* body */}
+      <div className="flex-1 overflow-y-auto overscroll-contain px-3 py-3 space-y-3">
+        {tab === "nearby" && (
+          <>
+            {showLocatePrompt && (
+              <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 text-center">
+                <div className="w-14 h-14 rounded-full bg-sky-100 flex items-center justify-center mx-auto mb-3">
+                  <Navigation className="w-7 h-7 text-sky-600" />
+                </div>
+                <h2 className="font-semibold text-slate-900 text-[16px] mb-1">
+                  撳一下，即刻睇附近有咩車
+                </h2>
+                <p className="text-[13px] text-slate-500 mb-4">
+                  定位後自動列出 800 米內所有車站＋實時班次
+                </p>
+                <button
+                  onClick={requestLocation}
+                  className="px-6 py-3 rounded-2xl bg-sky-500 text-white font-semibold text-[15px] shadow-md shadow-sky-500/25 active:scale-95 transition"
+                >
+                  📍 定位我嘅位置
+                </button>
+              </div>
+            )}
+
+            {geoLoading && (
+              <div className="bg-white rounded-2xl p-6 text-center text-[14px] text-slate-500">
+                定位緊…
+              </div>
+            )}
+
+            {hasLocation && stopsLoading && (
+              <div className="bg-white rounded-2xl p-6 text-center text-[14px] text-slate-500">
+                載入車站資料緊…
+              </div>
+            )}
+
+            {hasLocation && !stopsLoading && nearby.length === 0 && (
+              <div className="bg-white rounded-2xl p-6 text-center">
+                <p className="text-[14px] text-slate-500">
+                  800 米內冇車站紀錄
+                  <br />
+                  試下用上面搜尋路線
+                </p>
+              </div>
+            )}
+
+            {nearby.map(({ stop, dist }, i) => (
+              <NearbyStopCard
+                key={stop.id}
+                stop={stop}
+                distance={dist}
+                isFavorite={isFavorite}
+                toggleFavorite={toggleFavorite}
+                defaultExpanded={i === 0}
+              />
+            ))}
+          </>
+        )}
+
+        {tab === "routes" && (
+          <>
+            {!routeQuery && !selectedRoute && (
+              <div className="bg-white rounded-2xl p-6 text-center text-[14px] text-slate-500">
+                喺上面輸入路線編號搜尋
+                <br />
+                <span className="text-[12px]">支援九巴、城巴、綠Van、港鐵巴士</span>
+              </div>
+            )}
+
+            {selectedRoute ? (
+              <div>
+                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm px-4 py-3 flex items-center gap-3">
+                  <button
+                    onClick={() => setSelectedRoute(null)}
+                    className="text-sky-600 text-[14px] font-medium shrink-0"
+                  >
+                    ← 返回
+                  </button>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <OperatorBadge operator={selectedRoute.operator} />
+                      <span className="font-bold text-slate-900 text-[16px]">
+                        {selectedRoute.route}
+                      </span>
+                      {selectedRoute.directionLabel && (
+                        <span className="text-[12px] text-slate-500">
+                          {selectedRoute.directionLabel}
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-[13px] text-slate-500 truncate mt-0.5">
+                      {selectedRoute.originTc} → {selectedRoute.destTc}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => toggleFavRoute(selectedRoute)}
+                    className="p-2 shrink-0"
+                    aria-label="收藏路線"
+                  >
+                    {isFavRoute(selectedRoute.id) ? (
+                      <Star className="w-6 h-6 text-amber-400 fill-amber-400" />
+                    ) : (
+                      <StarOff className="w-6 h-6 text-slate-300" />
+                    )}
+                  </button>
+                </div>
+
+                {stopsListLoading ? (
+                  <div className="bg-white rounded-2xl p-6 mt-3 text-center text-[14px] text-slate-500">
+                    載入站表緊…
+                  </div>
+                ) : (
+                  <LiteRouteStopsList
+                    route={selectedRoute}
+                    stopSeqs={stopSeqs}
+                    stops={stops}
+                  />
+                )}
+              </div>
+            ) : (
+              routeQuery && (
+                <div className="space-y-2">
+                  {routesLoading && (
+                    <div className="text-center text-[13px] text-slate-400 py-4">
+                      搜尋緊…
+                    </div>
+                  )}
+                  {!routesLoading && searchedRoutes.length === 0 && (
+                    <div className="bg-white rounded-2xl p-6 text-center text-[14px] text-slate-500">
+                      搵唔到「{routeQuery}」
+                    </div>
+                  )}
+                  {searchedRoutes.map((r) => (
+                    <div
+                      key={r.id}
+                      className="bg-white rounded-2xl border border-slate-100 shadow-sm px-4 py-3 flex items-center gap-3"
+                    >
+                      <button
+                        onClick={() => setSelectedRoute(r)}
+                        className="flex-1 min-w-0 text-left flex items-center gap-2.5"
+                      >
+                        <OperatorBadge operator={r.operator} />
+                        <div className="min-w-0">
+                          <div className="font-bold text-slate-900 text-[15px]">
+                            {r.route}
+                            {r.directionLabel && (
+                              <span className="ml-2 text-[12px] font-medium text-slate-500">
+                                {r.directionLabel}
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-[13px] text-slate-500 truncate">
+                            {r.originTc} → {r.destTc}
+                          </div>
+                          {r.originEn && (
+                            <div className="text-[11px] text-slate-400 truncate">
+                              {r.originEn} → {r.destEn}
+                            </div>
+                          )}
+                        </div>
+                      </button>
+                      <button
+                        onClick={() => toggleFavRoute(r)}
+                        className="p-2 shrink-0"
+                        aria-label={isFavRoute(r.id) ? "取消收藏" : "收藏路線"}
+                      >
+                        {isFavRoute(r.id) ? (
+                          <Star className="w-5 h-5 text-amber-400 fill-amber-400" />
+                        ) : (
+                          <StarOff className="w-5 h-5 text-slate-300" />
+                        )}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )
+            )}
+          </>
+        )}
+
+        {tab === "favorites" && (
+          <>
+            <div className="flex p-1 bg-white rounded-2xl border border-slate-100">
+              {(["routes", "stops"] as const).map((t) => (
+                <button
+                  key={t}
+                  onClick={() => setFavTab(t)}
+                  className={clsx(
+                    "flex-1 py-2 text-[13px] font-medium rounded-xl transition-all",
+                    favTab === t
+                      ? "bg-slate-100 text-slate-900"
+                      : "text-slate-500"
+                  )}
+                >
+                  {t === "routes" ? `路線 (${favRoutes.length})` : `車站 (${favorites.length})`}
+                </button>
+              ))}
+            </div>
+
+            {favTab === "routes" && (
+              <div className="space-y-2">
+                {favRoutes.length === 0 && (
+                  <div className="bg-white rounded-2xl p-6 text-center text-[14px] text-slate-500">
+                    未收藏任何路線
+                    <br />
+                    <span className="text-[12px]">去「路線」搜尋，撳星號收藏</span>
+                  </div>
+                )}
+                {favRoutes.map((fr) => (
+                  <div
+                    key={fr.id}
+                    className="bg-white rounded-2xl border border-slate-100 shadow-sm px-4 py-3 flex items-center gap-3"
+                  >
+                    <button
+                      onClick={() => handleSelectFavRoute(fr)}
+                      className="flex-1 min-w-0 text-left flex items-center gap-2.5"
+                    >
+                      <OperatorBadge operator={fr.operator} />
+                      <div className="min-w-0">
+                        <div className="font-bold text-slate-900 text-[15px]">
+                          {fr.route}
+                          {fr.directionLabel && (
+                            <span className="ml-2 text-[12px] font-medium text-slate-500">
+                              {fr.directionLabel}
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-[13px] text-slate-500 truncate">
+                          {fr.originTc} → {fr.destTc}
+                        </div>
+                      </div>
+                    </button>
+                    <button
+                      onClick={() => removeFavRoute(fr.id)}
+                      className="p-2 shrink-0"
+                      aria-label="取消收藏"
+                    >
+                      <Star className="w-5 h-5 text-amber-400 fill-amber-400" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {favTab === "stops" && (
+              <div className="space-y-2">
+                {favorites.length === 0 && (
+                  <div className="bg-white rounded-2xl p-6 text-center text-[14px] text-slate-500">
+                    未收藏任何車站
+                  </div>
+                )}
+                {favorites.map((f) => {
+                  const fullStop: BusStop = {
+                    id: f.id,
+                    originalIds: [],
+                    nameEn: f.nameEn,
+                    nameTc: f.nameTc,
+                    lat: f.lat,
+                    lng: f.lng,
+                  };
+                  return (
+                    <NearbyStopCard
+                      key={f.id}
+                      stop={fullStop}
+                      distance={0}
+                      isFavorite={isFavorite}
+                      toggleFavorite={toggleFavorite}
+                      defaultExpanded={false}
+                    />
+                  );
+                })}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* footer: link to map version */}
+      <footer className="shrink-0 bg-white border-t border-slate-200 px-4 py-2 flex items-center justify-between">
+        <span className="text-[11px] text-slate-400">HK Bus ETA · 極速版</span>
+        <a
+          href="/hk-bus-eta/map/"
+          className="text-[12px] text-sky-600 font-medium"
+        >
+          🗺️ 切換去地圖版
+        </a>
+      </footer>
+    </main>
+  );
+}

@@ -504,9 +504,10 @@ export async function getAllETAsForStop(
           }).catch(() => [] as ETA[])
         );
       }
-      // GMB linked stops (limit 1 stop x 1 route to avoid proxy overload)
+      // GMB linked stops (up to 4 routes per stop to cover multi-route stops
+      // like 43C which may not be first in the list; proxy handles the load)
       for (const g of (link.gmb || []).slice(0, 1)) {
-        for (const rd of (g.routes_detail || []).slice(0, 1)) {
+        for (const rd of (g.routes_detail || []).slice(0, 4)) {
           promises.push(
             getETAs({
               operator: "GMB",

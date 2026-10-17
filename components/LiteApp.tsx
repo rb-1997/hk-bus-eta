@@ -515,6 +515,54 @@ export default function LiteApp() {
     }
   };
 
+  // View MTR/LRT station detail from nearby card
+  // Converts NearbyTransport item to BusRoute and shows station ETAs
+  const handleViewStation = (item: import("@/hooks/useNearbyTransport").NearbyTransport) => {
+    let br: BusRoute | null = null;
+    if (item.kind === "mtr" && item.mtrt) {
+      br = {
+        id: `MTRT-${item.mtrt.line}-${item.mtrt.sta}`,
+        operator: "MTRT",
+        route: `${item.nameTc}`,
+        originTc: item.mtrt.sta,
+        originEn: item.mtrt.sta,
+        destTc: item.mtrt.lineTc,
+        destEn: item.mtrt.lineEn,
+        directionLabel: `${item.mtrt.lineTc}`,
+        mtrt: {
+          line: item.mtrt.line,
+          sta: item.mtrt.sta,
+          lineTc: item.mtrt.lineTc,
+          lineEn: item.mtrt.lineEn,
+          staTc: item.nameTc.replace("站", ""),
+          staEn: item.nameEn.replace(" Station", ""),
+        },
+      };
+    } else if (item.kind === "lrt" && item.lrt) {
+      br = {
+        id: `LRT-${item.lrt.stationId}`,
+        operator: "LRT",
+        route: `${item.lrt.tc}站`,
+        originTc: item.lrt.tc,
+        originEn: item.lrt.en,
+        destTc: "輕鐵",
+        destEn: "Light Rail",
+        directionLabel: `輕鐵 · ${item.lrt.tc}`,
+        lrt: {
+          stationId: item.lrt.stationId,
+          tc: item.lrt.tc,
+          en: item.lrt.en,
+        },
+      };
+    }
+    if (br) {
+      setRouteQuery("");
+      setSelectedRoute(br);
+      setHighlightSeq(null);
+      setTab("routes");
+    }
+  };
+
   // Heart: toggle a specific stop on the current route as "心水站"
   const handleToggleHeart = (route: BusRoute, seq: number, nameTc?: string, nameEn?: string) => {
     toggleHeart({ route, stopSeq: seq, stopNameTc: nameTc || "", stopNameEn: nameEn || "" });
@@ -689,6 +737,7 @@ export default function LiteApp() {
                 item={item}
                 defaultExpanded={i === 0}
                 onTapRoute={handleTapEtaRoute}
+                onViewStation={handleViewStation}
               />
             ))}
           </>

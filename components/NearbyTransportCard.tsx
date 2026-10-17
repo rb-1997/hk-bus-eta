@@ -55,10 +55,12 @@ export function NearbyTransportCard({
   item,
   defaultExpanded,
   onTapRoute,
+  onViewStation,
 }: {
   item: NearbyTransport;
   defaultExpanded: boolean;
   onTapRoute: (eta: ETA) => void;
+  onViewStation?: (item: NearbyTransport) => void;
 }) {
   const [expanded, setExpanded] = useState(defaultExpanded);
 
@@ -153,7 +155,15 @@ export function NearbyTransportCard({
             {shown.map((e, i) => (
               <button
                 key={i}
-                onClick={() => onTapRoute(e)}
+                onClick={() => {
+                  // For bus: tap ETA -> go to route's full stop list
+                  // For MTR/LRT: tap ETA -> go to station detail view
+                  if ((item.kind === "mtr" || item.kind === "lrt") && onViewStation) {
+                    onViewStation(item);
+                  } else {
+                    onTapRoute(e);
+                  }
+                }}
                 className="w-full flex items-center gap-2 py-1.5 text-left active:bg-slate-50 rounded-lg px-1"
               >
                 <span className="font-bold text-sky-700 text-[14px] underline decoration-sky-200 underline-offset-2 shrink-0">

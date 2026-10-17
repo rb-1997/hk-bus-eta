@@ -119,6 +119,31 @@ export interface FavoriteRoute {
   savedAt: number;
 }
 
+// Heart favorite: a specific stop on a specific route+direction.
+// e.g. "44B1 往皇崗口岸 @ 翠寧站" — for the user's regular boarding stop.
+export interface FavoriteRouteStop {
+  id: string; // e.g. "hrt-GMB-NT-44B1-1-5"
+  routeId: string; // original BusRoute.id, for re-selecting the route
+  route: string;
+  operator: Operator;
+  directionLabel?: string;
+  bound?: "I" | "O" | "inbound" | "outbound";
+  originTc: string;
+  originEn: string;
+  destTc: string;
+  destEn: string;
+  stopSeq: number;
+  stopNameTc: string;
+  stopNameEn: string;
+  gmb?: {
+    region: string;
+    code: string;
+    route_id: number;
+    route_seq: number;
+  };
+  savedAt: number;
+}
+
 // Raw API types (partial)
 export interface KMBStopRaw {
   stop: string;

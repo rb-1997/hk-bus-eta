@@ -11,9 +11,11 @@ import {
   Clock,
   RefreshCw,
   LocateFixed,
+  Heart,
 } from "lucide-react";
 import type { BusStop, ETA, BusRoute, FavoriteStop, FavoriteRoute, PathStopMarker, RouteStopSeq } from "@/types/bus";
 import { useETA, useRouteSearch, useRouteStops } from "@/hooks/useBusData";
+import { useFavoriteHearts } from "@/hooks/useFavoriteHearts";
 import { findClosestStops, haversineDistance } from "@/utils/geo";
 import clsx from "clsx";
 
@@ -147,6 +149,8 @@ function RouteStopRow({
   kmbStopId,
   ctbStopId,
   mtrMeta,
+  isHeart,
+  onToggleHeart,
 }: {
   seq: number;
   nameTc?: string;
@@ -156,6 +160,8 @@ function RouteStopRow({
   kmbStopId?: string;
   ctbStopId?: string;
   mtrMeta?: { routeName: string; stopId: string };
+  isHeart?: (route: BusRoute, seq: number) => boolean;
+  onToggleHeart?: (route: BusRoute, seq: number, nameTc?: string, nameEn?: string) => void;
 }) {
   const { data: etas } = useSWR(
     route.operator === "GMB" && gmbMeta
@@ -227,7 +233,7 @@ function RouteStopRow({
 
   const list = (etas || []).slice(0, 3);
   return (
-    <div className="flex items-center gap-3 py-2.5 px-1 border-b border-slate-100 last:border-0">
+    <div className="flex items-center gap-2 py-2.5 px-1 border-b border-slate-100 last:border-0">
       <div className="w-7 h-7 rounded-full bg-slate-100 text-slate-600 text-[12px] font-semibold flex items-center justify-center shrink-0 tabular-nums">
         {seq}
       </div>
@@ -239,6 +245,22 @@ function RouteStopRow({
           <div className="text-[12px] text-slate-400 truncate">{displayEn}</div>
         )}
       </div>
+      {onToggleHeart && (
+        <button
+          onClick={() => onToggleHeart(route, seq, displayTc, displayEn)}
+          className="p-1.5 shrink-0 active:scale-90 transition"
+          aria-label={isHeart?.(route, seq) ? "取消心水站" : "設為心水站"}
+        >
+          <Heart
+            className={clsx(
+              "w-4.5 h-4.5",
+              isHeart?.(route, seq)
+                ? "text-rose-500 fill-rose-500"
+                : "text-slate-300"
+            )}
+          />
+        </button>
+      )}
       <div className="shrink-0 text-right">
         {!etas ? (
           <span className="text-[12px] text-slate-300">…</span>
@@ -273,10 +295,14 @@ function RouteStopsList({
   route,
   stopSeqs,
   stops,
+  isHeart,
+  onToggleHeart,
 }: {
   route: BusRoute;
   stopSeqs: RouteStopSeq[];
   stops: BusStop[];
+  isHeart?: (route: BusRoute, seq: number) => boolean;
+  onToggleHeart?: (route: BusRoute, seq: number, nameTc?: string, nameEn?: string) => void;
 }) {
   const enriched = useMemo(() => {
     const byOrig = new Map<string, BusStop>();
@@ -331,6 +357,8 @@ function RouteStopsList({
             kmbStopId={s.kmbStopId}
             ctbStopId={s.ctbStopId}
             mtrMeta={s.mtrMeta}
+            isHeart={isHeart}
+            onToggleHeart={onToggleHeart}
           />
         ))}
       </div>
@@ -365,10 +393,11 @@ export default function SearchPanel({
   const [searchText, setSearchText] = useState("");
   const [routeQuery, setRouteQuery] = useState("");
   const [mode, setMode] = useState<"stops" | "routes" | "favorites">("stops");
-  const [favTab, setFavTab] = useState<"routes" | "stops">("routes");
+  const [favTab, setFavTab] = useState<"hearts" | "routes" | "stops">("hearts");
   const [countdown, setCountdown] = useState(60);
   const inputRef = useRef<HTMLInputElement>(null);
   const { mutate } = useSWRConfig();
+  const { hearts, isHeart, toggleHeart, removeHeart } = useFavoriteHearts();
 
   const {
     etas,
@@ -520,6 +549,30 @@ export default function SearchPanel({
     }
   };
 
+  // Heart: toggle a specific stop on the current route as "心水站"
+  const handleToggleHeart = (route: BusRoute, seq: number, nameTc?: string, nameEn?: string) => {
+    toggleHeart({ route, stopSeq: seq, stopNameTc: nameTc || "", stopNameEn: nameEn || "" });
+  };
+
+  // Tap a heart favorite -> jump to that route's stop list
+  const handleTapHeart = (h: import("@/types/bus").FavoriteRouteStop) => {
+    const br: BusRoute = {
+      id: h.routeId,
+      route: h.route,
+      operator: h.operator,
+      originTc: h.originTc,
+      originEn: h.originEn,
+      destTc: h.destTc,
+      destEn: h.destEn,
+      directionLabel: h.directionLabel,
+      bound: h.bound,
+      gmb: h.gmb,
+    };
+    setSelectedRoute(br);
+    setRouteQuery(br.route);
+    setMode("routes");
+  };
+
   return (
     <div className={clsx("flex flex-col h-full bg-white", className)}>
       {isMobileSheet && (
@@ -617,7 +670,7 @@ export default function SearchPanel({
                   : "text-slate-500 hover:text-slate-700"
               )}
             >
-              {m === "favorites" ? `★ ${favorites.length + favRoutes.length}` : m}
+              {m === "favorites" ? `★ ${favorites.length + favRoutes.length + hearts.length}` : m}
             </button>
           ))}
         </div>
@@ -853,15 +906,33 @@ export default function SearchPanel({
               </div>
             )}
             {selectedRoute && stopSeqs.length > 0 && (
-              <RouteStopsList route={selectedRoute} stopSeqs={stopSeqs} stops={stops} />
+              <RouteStopsList
+                route={selectedRoute}
+                stopSeqs={stopSeqs}
+                stops={stops}
+                isHeart={isHeart}
+                onToggleHeart={handleToggleHeart}
+              />
             )}
           </div>
         )}
 
         {mode === "favorites" && (
           <div>
-            {/* Sub-tabs: Routes | Stops */}
+            {/* Sub-tabs: Hearts | Routes | Stops */}
             <div className="flex gap-2 px-1 py-2">
+              <button
+                onClick={() => setFavTab("hearts")}
+                className={clsx(
+                  "flex-1 py-2 rounded-xl text-[13px] font-medium transition flex items-center justify-center gap-1",
+                  favTab === "hearts"
+                    ? "bg-rose-500 text-white"
+                    : "bg-slate-100 text-slate-500"
+                )}
+              >
+                <Heart className={clsx("w-3.5 h-3.5", favTab === "hearts" ? "fill-white" : "text-rose-400")} />
+                心心 ({hearts.length})
+              </button>
               <button
                 onClick={() => setFavTab("routes")}
                 className={clsx(
@@ -871,7 +942,7 @@ export default function SearchPanel({
                     : "bg-slate-100 text-slate-500"
                 )}
               >
-                路線 ({favRoutes.length})
+                ★ 路線 ({favRoutes.length})
               </button>
               <button
                 onClick={() => setFavTab("stops")}
@@ -882,10 +953,57 @@ export default function SearchPanel({
                     : "bg-slate-100 text-slate-500"
                 )}
               >
-                車站 ({favorites.length})
+                ★ 車站 ({favorites.length})
               </button>
             </div>
-            {favTab === "routes" ? (
+            {favTab === "hearts" ? (
+              hearts.length === 0 ? (
+                <div className="py-16 text-center">
+                  <div className="w-14 h-14 rounded-2xl bg-rose-50 flex items-center justify-center mx-auto mb-4">
+                    <Heart className="w-7 h-7 text-rose-300" />
+                  </div>
+                  <p className="text-[15px] text-slate-500">未有心水站</p>
+                  <p className="text-[13px] text-slate-400 mt-1">
+                    入去任何路線嘅站表，撳每站右邊嘅 ♡
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2 px-1">
+                  {hearts.map((h) => (
+                    <div
+                      key={h.id}
+                      className="bg-white rounded-2xl border border-rose-100 shadow-sm px-4 py-3 flex items-center gap-3"
+                    >
+                      <button
+                        onClick={() => handleTapHeart(h)}
+                        className="flex-1 min-w-0 text-left flex items-center gap-2.5"
+                      >
+                        <Heart className="w-5 h-5 text-rose-500 fill-rose-500 shrink-0" />
+                        <div className="min-w-0">
+                          <div className="font-bold text-slate-900 text-[15px]">
+                            {h.route}
+                            <span className="ml-2 text-[12px] font-medium text-slate-500">
+                              第 {h.stopSeq} 站 · {h.stopNameTc || h.stopNameEn}
+                            </span>
+                          </div>
+                          <div className="text-[13px] text-slate-500 truncate">
+                            往 {h.destTc || h.destEn}
+                            {h.directionLabel && ` · ${h.directionLabel}`}
+                          </div>
+                        </div>
+                      </button>
+                      <button
+                        onClick={() => removeHeart(h.id)}
+                        className="p-2 shrink-0"
+                        aria-label="取消心水站"
+                      >
+                        <X className="w-4 h-4 text-slate-300" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )
+            ) : favTab === "routes" ? (
               favRoutes.length === 0 ? (
                 <div className="py-16 text-center">
                   <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-4">

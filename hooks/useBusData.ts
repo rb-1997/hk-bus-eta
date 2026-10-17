@@ -45,9 +45,9 @@ export function useETA(
     () => getAllETAsForStop(stop!),
     {
       refreshInterval: 60000, // auto every 60s as backup
-      revalidateOnFocus: true,
-      dedupingInterval: 10000,
-      errorRetryCount: 3,
+      revalidateOnFocus: false, // avoid request storm on focus
+      dedupingInterval: 30000,
+      errorRetryCount: 2,
     }
   );
 

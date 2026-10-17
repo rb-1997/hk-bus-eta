@@ -12,7 +12,7 @@ import {
   RefreshCw,
   LocateFixed,
 } from "lucide-react";
-import type { BusStop, ETA, BusRoute, FavoriteStop, PathStopMarker, RouteStopSeq } from "@/types/bus";
+import type { BusStop, ETA, BusRoute, FavoriteStop, FavoriteRoute, PathStopMarker, RouteStopSeq } from "@/types/bus";
 import { useETA, useRouteSearch, useRouteStops } from "@/hooks/useBusData";
 import { findClosestStops, haversineDistance } from "@/utils/geo";
 import clsx from "clsx";
@@ -30,6 +30,11 @@ interface SearchPanelProps {
   favorites: FavoriteStop[];
   isFavorite: (id: string) => boolean;
   toggleFavorite: (stop: BusStop) => void;
+  favRoutes: FavoriteRoute[];
+  isFavRoute: (id: string) => boolean;
+  toggleFavRoute: (route: BusRoute) => void;
+  removeFavRoute: (id: string) => void;
+  onSelectFavRoute: (fr: FavoriteRoute) => void;
   onShowRoutePath: (
     path: { lat: number; lng: number }[] | null,
     route: BusRoute | null,
@@ -337,6 +342,11 @@ export default function SearchPanel({
   favorites,
   isFavorite,
   toggleFavorite,
+  favRoutes,
+  isFavRoute,
+  toggleFavRoute,
+  removeFavRoute,
+  onSelectFavRoute,
   onShowRoutePath,
   className = "",
   isMobileSheet = false,
@@ -346,6 +356,7 @@ export default function SearchPanel({
   const [searchText, setSearchText] = useState("");
   const [routeQuery, setRouteQuery] = useState("");
   const [mode, setMode] = useState<"stops" | "routes" | "favorites">("stops");
+  const [favTab, setFavTab] = useState<"routes" | "stops">("routes");
   const [countdown, setCountdown] = useState(60);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -696,43 +707,74 @@ export default function SearchPanel({
             ) : (
               <div className="space-y-1">
                 {searchedRoutes.map((r) => (
-                  <button
+                  <div
                     key={r.id}
-                    onClick={() => handleSelectRoute(r)}
                     className={clsx(
-                      "w-full text-left px-3.5 py-3.5 rounded-2xl flex items-center gap-3.5 transition",
+                      "w-full px-3.5 py-3.5 rounded-2xl flex items-center gap-3.5 transition",
                       selectedRoute?.id === r.id
                         ? "bg-sky-50 ring-1 ring-sky-200"
                         : "hover:bg-slate-50"
                     )}
                   >
-                    <OperatorBadge operator={r.operator} />
-                    <div className="min-w-0 flex-1">
-                      <div className="text-[15px] font-semibold text-slate-900">
-                        {r.route}
-                        {r.directionLabel && (
-                          <span className="ml-2 text-[12px] font-normal text-slate-500">
-                            {r.directionLabel}
-                          </span>
+                    <button
+                      onClick={() => handleSelectRoute(r)}
+                      className="flex items-center gap-3.5 min-w-0 flex-1 text-left"
+                    >
+                      <OperatorBadge operator={r.operator} />
+                      <div className="min-w-0 flex-1">
+                        <div className="text-[15px] font-semibold text-slate-900">
+                          {r.route}
+                          {r.directionLabel && (
+                            <span className="ml-2 text-[12px] font-normal text-slate-500">
+                              {r.directionLabel}
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-[13px] text-slate-500 truncate mt-0.5">
+                          {r.originTc || r.originEn} → {r.destTc || r.destEn}
+                        </div>
+                        {(r.originEn || r.destEn) && (r.originTc || r.destTc) && (
+                          <div className="text-[12px] text-slate-400 truncate">
+                            {r.originEn} → {r.destEn}
+                          </div>
                         )}
                       </div>
-                      <div className="text-[13px] text-slate-500 truncate mt-0.5">
-                        {r.originTc || r.originEn} → {r.destTc || r.destEn}
-                      </div>
-                      {(r.originEn || r.destEn) && (r.originTc || r.destTc) && (
-                        <div className="text-[12px] text-slate-400 truncate">
-                          {r.originEn} → {r.destEn}
-                        </div>
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleFavRoute(r);
+                      }}
+                      className="shrink-0 p-1.5 -m-1.5"
+                      aria-label={isFavRoute(r.id) ? "Remove from favorites" : "Add to favorites"}
+                    >
+                      {isFavRoute(r.id) ? (
+                        <Star className="w-5 h-5 text-amber-400 fill-amber-400" />
+                      ) : (
+                        <Star className="w-5 h-5 text-slate-300" />
                       )}
-                    </div>
-                  </button>
+                    </button>
+                  </div>
                 ))}
               </div>
             )}
             {selectedRoute && (
               <div className="mt-4 p-3.5 bg-sky-50 rounded-2xl text-[13px] text-sky-800 flex items-center justify-between">
-                <span>
-                  Showing path for <strong>{selectedRoute.route}</strong>
+                <span className="flex items-center gap-2">
+                  <button
+                    onClick={() => toggleFavRoute(selectedRoute)}
+                    className="shrink-0"
+                    aria-label={isFavRoute(selectedRoute.id) ? "Remove from favorites" : "Add to favorites"}
+                  >
+                    {isFavRoute(selectedRoute.id) ? (
+                      <Star className="w-5 h-5 text-amber-400 fill-amber-400" />
+                    ) : (
+                      <Star className="w-5 h-5 text-slate-300" />
+                    )}
+                  </button>
+                  <span>
+                    Showing path for <strong>{selectedRoute.route}</strong>
+                  </span>
                 </span>
                 <button
                   onClick={() => {
@@ -753,7 +795,83 @@ export default function SearchPanel({
 
         {mode === "favorites" && (
           <div>
-            {favorites.length === 0 ? (
+            {/* Sub-tabs: Routes | Stops */}
+            <div className="flex gap-2 px-1 py-2">
+              <button
+                onClick={() => setFavTab("routes")}
+                className={clsx(
+                  "flex-1 py-2 rounded-xl text-[13px] font-medium transition",
+                  favTab === "routes"
+                    ? "bg-slate-900 text-white"
+                    : "bg-slate-100 text-slate-500"
+                )}
+              >
+                路線 ({favRoutes.length})
+              </button>
+              <button
+                onClick={() => setFavTab("stops")}
+                className={clsx(
+                  "flex-1 py-2 rounded-xl text-[13px] font-medium transition",
+                  favTab === "stops"
+                    ? "bg-slate-900 text-white"
+                    : "bg-slate-100 text-slate-500"
+                )}
+              >
+                車站 ({favorites.length})
+              </button>
+            </div>
+            {favTab === "routes" ? (
+              favRoutes.length === 0 ? (
+                <div className="py-16 text-center">
+                  <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-4">
+                    <Star className="w-7 h-7 text-slate-300" />
+                  </div>
+                  <p className="text-[15px] text-slate-500">No favorite routes yet</p>
+                  <p className="text-[13px] text-slate-400 mt-1">
+                    Tap the star on any route to save it
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  {favRoutes.map((fr) => (
+                    <div
+                      key={fr.id}
+                      className="w-full px-3.5 py-3.5 rounded-2xl hover:bg-slate-50 flex items-center gap-3.5 transition"
+                    >
+                      <button
+                        onClick={() => {
+                          onSelectFavRoute(fr);
+                          setMode("routes");
+                        }}
+                        className="flex items-center gap-3.5 min-w-0 flex-1 text-left"
+                      >
+                        <OperatorBadge operator={fr.operator} />
+                        <div className="min-w-0 flex-1">
+                          <div className="text-[15px] font-semibold text-slate-900">
+                            {fr.route}
+                            {fr.directionLabel && (
+                              <span className="ml-2 text-[12px] font-normal text-slate-500">
+                                {fr.directionLabel}
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-[13px] text-slate-500 truncate mt-0.5">
+                            {fr.originTc || fr.originEn} → {fr.destTc || fr.destEn}
+                          </div>
+                        </div>
+                      </button>
+                      <button
+                        onClick={() => removeFavRoute(fr.id)}
+                        className="shrink-0 p-1.5 -m-1.5"
+                        aria-label="Remove from favorites"
+                      >
+                        <Star className="w-5 h-5 text-amber-400 fill-amber-400" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )
+            ) : favorites.length === 0 ? (
               <div className="py-16 text-center">
                 <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-4">
                   <Star className="w-7 h-7 text-slate-300" />

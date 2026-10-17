@@ -470,18 +470,18 @@ export async function getAllETAsForStop(
     const linkKey = Object.keys(links).find(k => stop.id.includes(k) || k.includes(stop.id.replace(/^kmb-/, '').replace(/^merged-[^-]+-/, '')));
     const link = linkKey ? links[linkKey] : links[stop.id];
     if (link) {
-      // CTB linked stops: query ETA for all routes at that CTB stop
+      // CTB linked stops: query ETA (limit 1 stop to avoid request storm)
       const ctbRoutes = await getCtbStopRoutes();
-      for (const ctb of (link.ctb || []).slice(0, 2)) {
-        const routes = (ctbRoutes[ctb.id] || []).slice(0, 5).join(",");
+      for (const ctb of (link.ctb || []).slice(0, 1)) {
+        const routes = (ctbRoutes[ctb.id] || []).slice(0, 4).join(",");
         if (routes) {
           promises.push(
             getETAs({ operator: "CTB", originalId: ctb.id, routes }).catch(() => [] as ETA[])
           );
         }
       }
-      // MTR linked stops
-      for (const mtr of (link.mtr || []).slice(0, 3)) {
+      // MTR linked stops (limit 2)
+      for (const mtr of (link.mtr || []).slice(0, 2)) {
         promises.push(
           getETAs({
             operator: "MTR",
@@ -491,12 +491,12 @@ export async function getAllETAsForStop(
               dest_tc: mtr.name_tc,
               dest_en: mtr.name_en,
             },
-          })
+          }).catch(() => [] as ETA[])
         );
       }
-      // GMB linked stops (limit to avoid too many proxy calls)
-      for (const g of (link.gmb || []).slice(0, 2)) {
-        for (const rd of (g.routes_detail || []).slice(0, 2)) {
+      // GMB linked stops (limit 1 stop x 1 route to avoid proxy overload)
+      for (const g of (link.gmb || []).slice(0, 1)) {
+        for (const rd of (g.routes_detail || []).slice(0, 1)) {
           promises.push(
             getETAs({
               operator: "GMB",
@@ -508,7 +508,7 @@ export async function getAllETAsForStop(
                 dest_tc: rd.dest_tc,
                 dest_en: rd.dest_en,
               },
-            })
+            }).catch(() => [] as ETA[])
           );
         }
       }
@@ -517,7 +517,19 @@ export async function getAllETAsForStop(
     /* links optional */
   }
 
-  const results = await Promise.allSettled(promises);
+  // Timeout after 15s to prevent hangs
+  const timeout = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error("timeout")), 15000)
+  );
+  let results: PromiseSettledResult<ETA[]>[] = [];
+  try {
+    results = await Promise.race([
+      Promise.allSettled(promises),
+      timeout.then(() => [] as PromiseSettledResult<ETA[]>[]),
+    ]);
+  } catch {
+    results = [];
+  }
   for (const r of results) {
     if (r.status === "fulfilled") allEtas.push(...r.value);
   }

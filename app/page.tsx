@@ -5,8 +5,9 @@ import dynamic from "next/dynamic";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { useStops } from "@/hooks/useBusData";
 import { useFavorites } from "@/hooks/useFavorites";
+import { useFavoriteRoutes } from "@/hooks/useFavoriteRoutes";
 import SearchPanel from "@/components/SearchPanel";
-import type { BusStop, BusRoute, PathStopMarker } from "@/types/bus";
+import type { BusStop, BusRoute, FavoriteRoute, PathStopMarker } from "@/types/bus";
 import { findClosestStops } from "@/utils/geo";
 import { AlertCircle } from "lucide-react";
 
@@ -32,6 +33,7 @@ export default function HomePage() {
 
   const { stops, isLoading: stopsLoading, error: stopsError } = useStops();
   const { favorites, isFavorite, toggleFavorite, loaded: favLoaded } = useFavorites();
+  const { favRoutes, isFavRoute, toggleFavRoute, removeFavRoute } = useFavoriteRoutes();
 
   const [selectedStop, setSelectedStop] = useState<BusStop | null>(null);
   const [selectedRoute, setSelectedRoute] = useState<BusRoute | null>(null);
@@ -58,6 +60,24 @@ export default function HomePage() {
       }
     }
   }, [geoLoading, permission, stops, userLat, userLng, selectedStop]);
+
+  const handleSelectFavRoute = useCallback((fr: FavoriteRoute) => {
+    const br: BusRoute = {
+      id: fr.id,
+      route: fr.route,
+      operator: fr.operator,
+      originTc: fr.originTc,
+      originEn: fr.originEn,
+      destTc: fr.destTc,
+      destEn: fr.destEn,
+      directionLabel: fr.directionLabel,
+      bound: fr.bound,
+      gmb: fr.gmb,
+    };
+    setSelectedRoute(br);
+    setHighlightedRoute(br);
+    setSelectedStop(null);
+  }, []);
 
   const handleSelectStop = useCallback((stop: BusStop | null) => {
     setSelectedStop(stop);
@@ -164,6 +184,11 @@ export default function HomePage() {
           favorites={favorites}
           isFavorite={isFavorite}
           toggleFavorite={toggleFavorite}
+          favRoutes={favRoutes}
+          isFavRoute={isFavRoute}
+          toggleFavRoute={toggleFavRoute}
+          removeFavRoute={removeFavRoute}
+          onSelectFavRoute={handleSelectFavRoute}
           onShowRoutePath={handleShowRoutePath}
         />
       </div>
@@ -187,6 +212,11 @@ export default function HomePage() {
           favorites={favorites}
           isFavorite={isFavorite}
           toggleFavorite={toggleFavorite}
+          favRoutes={favRoutes}
+          isFavRoute={isFavRoute}
+          toggleFavRoute={toggleFavRoute}
+          removeFavRoute={removeFavRoute}
+          onSelectFavRoute={handleSelectFavRoute}
           onShowRoutePath={handleShowRoutePath}
           isMobileSheet
           sheetExpanded={sheetExpanded}

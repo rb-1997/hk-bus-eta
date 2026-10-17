@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { DEFAULT_HK_CENTER } from "@/utils/geo";
 
 interface GeoState {
   lat: number;
@@ -14,8 +13,8 @@ interface GeoState {
 
 export function useGeolocation(autoRequest = true) {
   const [state, setState] = useState<GeoState>({
-    lat: DEFAULT_HK_CENTER.lat,
-    lng: DEFAULT_HK_CENTER.lng,
+    lat: 0,
+    lng: 0,
     loading: autoRequest,
     error: null,
     permission: "unknown",

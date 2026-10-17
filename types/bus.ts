@@ -100,6 +100,25 @@ export interface FavoriteStop {
   savedAt: number;
 }
 
+export interface FavoriteRoute {
+  id: string;
+  route: string;
+  operator: Operator;
+  originTc: string;
+  originEn: string;
+  destTc: string;
+  destEn: string;
+  directionLabel?: string;
+  bound?: "I" | "O" | "inbound" | "outbound";
+  gmb?: {
+    region: string;
+    code: string;
+    route_id: number;
+    route_seq: number;
+  };
+  savedAt: number;
+}
+
 // Raw API types (partial)
 export interface KMBStopRaw {
   stop: string;

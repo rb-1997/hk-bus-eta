@@ -757,7 +757,7 @@ export default function LiteApp() {
 
       {/* footer: link to map version */}
       <footer className="shrink-0 bg-white border-t border-slate-200 px-4 py-2 flex items-center justify-between">
-        <span className="text-[11px] text-slate-400">HK Bus ETA · 極速版</span>
+        <span className="text-[11px] text-slate-400">HK Bus ETA · 極速版 v2.0-lite</span>
         <a
           href="/hk-bus-eta/map/"
           className="text-[12px] text-sky-600 font-medium"

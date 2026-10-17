@@ -16,6 +16,7 @@ import {
 import type { BusStop, ETA, BusRoute, FavoriteStop, FavoriteRoute, PathStopMarker, RouteStopSeq } from "@/types/bus";
 import { useETA, useRouteSearch, useRouteStops } from "@/hooks/useBusData";
 import { useFavoriteHearts } from "@/hooks/useFavoriteHearts";
+import { useRoutesSortedByDistance } from "@/hooks/useRoutesSortedByDistance";
 import { findClosestStops, haversineDistance } from "@/utils/geo";
 import clsx from "clsx";
 
@@ -81,6 +82,7 @@ function ETAItem({ eta, onTapRoute }: { eta: ETA; onTapRoute?: (eta: ETA) => voi
   let timeLabel = "—";
   let timeClass = "text-slate-400";
   let bgClass = "bg-slate-50";
+  const urgent = mins !== null && mins <= 3 && mins >= 0;
 
   if (mins !== null) {
     if (mins <= 0) {
@@ -130,7 +132,8 @@ function ETAItem({ eta, onTapRoute }: { eta: ETA; onTapRoute?: (eta: ETA) => voi
         className={clsx(
           "text-right text-[15px] font-semibold tabular-nums shrink-0 ml-3 px-2.5 py-1 rounded-lg",
           timeClass,
-          bgClass
+          bgClass,
+          urgent && "eta-urgent"
         )}
       >
         {timeLabel}
@@ -277,7 +280,8 @@ function RouteStopRow({
                     ? "text-emerald-600"
                     : e.etaMinutes !== null && e.etaMinutes <= 5
                       ? "text-amber-600"
-                      : "text-slate-700"
+                      : "text-slate-700",
+                  e.etaMinutes !== null && e.etaMinutes <= 3 && e.etaMinutes >= 0 && "eta-urgent"
                 )}
               >
                 {e.etaMinutes === null ? (e.remarkTc || e.remarkEn || "—") : e.etaMinutes <= 0 ? "Now" : `${e.etaMinutes} min`}
@@ -408,6 +412,7 @@ export default function SearchPanel({
   } = useETA(selectedStop);
 
   const { routes: searchedRoutes, isLoading: routesLoading } = useRouteSearch(routeQuery);
+  const sortedRoutes = useRoutesSortedByDistance(searchedRoutes, userLat, userLng);
   const setSelectedRoute = onSelectRoute;
 
   const operatorForApi =
@@ -818,13 +823,13 @@ export default function SearchPanel({
               <div className="py-14 text-center text-[14px] text-slate-400">
                 Searching...
               </div>
-            ) : searchedRoutes.length === 0 && routeQuery ? (
+            ) : sortedRoutes.length === 0 && routeQuery ? (
               <div className="py-14 text-center text-[14px] text-slate-400">
                 No routes found
               </div>
             ) : (
               <div className="space-y-1">
-                {searchedRoutes.map((r) => (
+                {sortedRoutes.map((r) => (
                   <div
                     key={r.id}
                     className={clsx(

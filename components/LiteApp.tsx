@@ -21,6 +21,7 @@ import { useGeolocation } from "@/hooks/useGeolocation";
 import { useFavorites } from "@/hooks/useFavorites";
 import { useFavoriteRoutes } from "@/hooks/useFavoriteRoutes";
 import { useFavoriteHearts } from "@/hooks/useFavoriteHearts";
+import { useRoutesSortedByDistance } from "@/hooks/useRoutesSortedByDistance";
 import { findClosestStops, haversineDistance } from "@/utils/geo";
 import clsx from "clsx";
 
@@ -66,6 +67,11 @@ function etaColor(e: ETA): string {
   if (e.etaMinutes <= 1) return "text-emerald-600";
   if (e.etaMinutes <= 5) return "text-amber-600";
   return "text-slate-700";
+}
+
+// Urgent: bus arriving within 3 minutes -> red flashing
+function isUrgent(e: ETA): boolean {
+  return e.etaMinutes !== null && e.etaMinutes <= 3 && e.etaMinutes >= 0;
 }
 
 /* ---------- nearby stop card with live ETAs ---------- */
@@ -132,7 +138,7 @@ function NearbyStopCard({
               <span className="text-[12px] text-slate-500 truncate flex-1">
                 往 {e.destTc || e.destEn}
               </span>
-              <span className={clsx("text-[13px] font-semibold tabular-nums shrink-0", etaColor(e))}>
+              <span className={clsx("text-[13px] font-semibold tabular-nums shrink-0", etaColor(e), isUrgent(e) && "eta-urgent")}>
                 {etaText(e)}
               </span>
             </button>
@@ -294,7 +300,7 @@ function LiteRouteStopRow({
         ) : (
           <div className="flex flex-col items-end gap-0.5">
             {list.map((e, i) => (
-              <span key={i} className={clsx("text-[13px] font-semibold tabular-nums", etaColor(e))}>
+              <span key={i} className={clsx("text-[13px] font-semibold tabular-nums", etaColor(e), isUrgent(e) && "eta-urgent")}>
                 {etaText(e)}
               </span>
             ))}
@@ -421,6 +427,7 @@ export default function LiteApp() {
   const { favRoutes, isFavRoute, toggleFavRoute, removeFavRoute } = useFavoriteRoutes();
   const { hearts, isHeart, toggleHeart, removeHeart } = useFavoriteHearts();
   const { routes: searchedRoutes, isLoading: routesLoading } = useRouteSearch(routeQuery);
+  const sortedRoutes = useRoutesSortedByDistance(searchedRoutes, userLat, userLng);
 
   const operatorForApi =
     selectedRoute?.operator === "LWB" ? "KMB" : selectedRoute?.operator ?? null;
@@ -744,12 +751,12 @@ export default function LiteApp() {
                       搜尋緊…
                     </div>
                   )}
-                  {!routesLoading && searchedRoutes.length === 0 && (
+                  {!routesLoading && sortedRoutes.length === 0 && (
                     <div className="bg-white rounded-2xl p-6 text-center text-[14px] text-slate-500">
                       搵唔到「{routeQuery}」
                     </div>
                   )}
-                  {searchedRoutes.map((r) => (
+                  {sortedRoutes.map((r) => (
                     <div
                       key={r.id}
                       className="bg-white rounded-2xl border border-slate-100 shadow-sm px-4 py-3 flex items-center gap-3"

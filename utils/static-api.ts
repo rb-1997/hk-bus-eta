@@ -759,6 +759,9 @@ export async function getAllETAsForStop(
   }
 
   // Sort and dedupe
+  // Dedupe key includes etaMinutes to catch true duplicates (same bus from
+  // multiple sources). Different directions have different destEn, so they
+  // are preserved.
   allEtas.sort((a, b) => {
     if (a.etaMinutes === null) return 1;
     if (b.etaMinutes === null) return -1;
@@ -766,7 +769,7 @@ export async function getAllETAsForStop(
   });
   const seen = new Set<string>();
   return allEtas.filter((e) => {
-    const key = `${e.operator}-${e.route}-${e.destEn}-${e.sequence}`;
+    const key = `${e.operator}-${e.route}-${e.destEn}-${e.etaMinutes}`;
     if (seen.has(key)) return false;
     seen.add(key);
     return true;

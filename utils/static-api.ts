@@ -28,10 +28,9 @@ const ROUTES_TTL = 24 * 3600 * 1000;
 const GMB_PROXY =
   "https://hengfuk-gmb-proxy-rb-1997s-projects.vercel.app/api/gmb-proxy?path=";
 
-// MTR Next Train proxy (user deploys mtr-proxy.js to the same Vercel project)
-// The MTR API has no CORS, so browsers must go through this proxy.
-const MTR_PROXY =
-  "https://hengfuk-gmb-proxy-rb-1997s-projects.vercel.app/api/mtr-proxy?";
+// MTR Next Train API has CORS * (verified 2026-10-18) — call directly, no proxy needed.
+// (Earlier HEAD-request test was misleading; GET returns Access-Control-Allow-Origin: *)
+const MTR_TRAIN_API = "https://rt.data.gov.hk/v1/transport/mtr/getSchedule.php";
 
 async function plainFetch(url: string) {
   const res = await fetch(url);
@@ -424,13 +423,13 @@ export async function getETAs(query: ETAQuery): Promise<ETA[]> {
     return etas;
   }
 
-  // MTR Trains via proxy (official API has no CORS)
+  // MTR Trains via direct API (has CORS *, verified 2026-10-18)
   // Returns next 4 trains per direction (UP/DOWN)
   if (operator === "MTRT" && query.mtrt) {
     const { line, sta, lineTc, lineEn } = query.mtrt;
     try {
       const res = await fetch(
-        `${MTR_PROXY}line=${line}&sta=${sta}&lang=TC`
+        `${MTR_TRAIN_API}?line=${line}&sta=${sta}&lang=TC`
       ).then((r) => r.json());
       if (res.status === 1 && res.data) {
         const key = `${line}-${sta}`;

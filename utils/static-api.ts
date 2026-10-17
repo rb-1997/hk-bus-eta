@@ -85,7 +85,17 @@ export async function getStops(): Promise<BusStop[]> {
 async function getRawRoutes() {
   if (routesCache && Date.now() - routesCacheAt < ROUTES_TTL) return routesCache;
   const [kmbRaw, ctbRaw] = await Promise.all([
-    plainFetch(`${KMB_BASE}/route`).then((j) => j.data || []).catch(() => []),
+    plainFetch(`${KMB_BASE}/route`)
+      .then((j) => j.data || [])
+      .catch(async () => {
+        // Fallback to bundled KMB route list if live API unreachable
+        try {
+          const bundled = await plainFetch("kmb-routes.json");
+          return Array.isArray(bundled) ? bundled : [];
+        } catch {
+          return [];
+        }
+      }),
     plainFetch(`${CTB_BASE}/route/CTB`)
       .then((j) => (Array.isArray(j.data) ? j.data : [j.data]))
       .catch(() => []),

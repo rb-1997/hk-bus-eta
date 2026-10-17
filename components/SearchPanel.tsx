@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect, useRef } from "react";
-import useSWR from "swr";
+import useSWR, { useSWRConfig } from "swr";
 import {
   Search,
   MapPin,
@@ -74,7 +74,7 @@ function OperatorBadge({ operator }: { operator: string }) {
   );
 }
 
-function ETAItem({ eta }: { eta: ETA }) {
+function ETAItem({ eta, onTapRoute }: { eta: ETA; onTapRoute?: (eta: ETA) => void }) {
   const mins = eta.etaMinutes;
   let timeLabel = "—";
   let timeClass = "text-slate-400";
@@ -107,9 +107,18 @@ function ETAItem({ eta }: { eta: ETA }) {
       <div className="flex items-center gap-3 min-w-0">
         <OperatorBadge operator={eta.operator} />
         <div className="min-w-0">
-          <div className="font-semibold text-slate-900 text-[15px] tracking-tight">
-            {eta.route}
-          </div>
+          {onTapRoute ? (
+            <button
+              onClick={() => onTapRoute(eta)}
+              className="font-semibold text-sky-700 text-[15px] tracking-tight underline decoration-sky-200 underline-offset-2 active:text-sky-800"
+            >
+              {eta.route}
+            </button>
+          ) : (
+            <div className="font-semibold text-slate-900 text-[15px] tracking-tight">
+              {eta.route}
+            </div>
+          )}
           <div className="text-[13px] text-slate-500 truncate mt-0.5">
             {eta.destTc ? `${eta.destTc} · ` : ""}to {eta.destEn}
           </div>
@@ -359,6 +368,7 @@ export default function SearchPanel({
   const [favTab, setFavTab] = useState<"routes" | "stops">("routes");
   const [countdown, setCountdown] = useState(60);
   const inputRef = useRef<HTMLInputElement>(null);
+  const { mutate } = useSWRConfig();
 
   const {
     etas,
@@ -480,6 +490,36 @@ export default function SearchPanel({
     setRouteQuery(route.route);
   };
 
+  // Tap a route in the stop ETA list -> jump to its full route view (path + stops)
+  const handleTapEtaRoute = async (eta: ETA) => {
+    try {
+      const { searchRoutes } = await import("@/utils/static-api");
+      const candidates = await searchRoutes(eta.route);
+      const sameOp = candidates.filter((r) => r.operator === eta.operator);
+      const pool = sameOp.length > 0 ? sameOp : candidates;
+      let best: BusRoute | null = null;
+      if (eta.destTc) {
+        best = pool.find((r) => r.destTc === eta.destTc || r.destEn === eta.destEn) || null;
+      }
+      if (!best) {
+        best =
+          pool.find(
+            (r) =>
+              (eta.destTc && (r.destTc.includes(eta.destTc) || eta.destTc.includes(r.destTc))) ||
+              (eta.destEn && (r.destEn.toLowerCase().includes(eta.destEn.toLowerCase()) || eta.destEn.toLowerCase().includes(r.destEn.toLowerCase())))
+          ) || null;
+      }
+      if (!best) best = pool[0] || null;
+      if (best) {
+        setSelectedRoute(best);
+        setRouteQuery(best.route);
+        setMode("routes");
+      }
+    } catch {
+      /* ignore */
+    }
+  };
+
   return (
     <div className={clsx("flex flex-col h-full bg-white", className)}>
       {isMobileSheet && (
@@ -492,11 +532,11 @@ export default function SearchPanel({
       )}
 
       <div className="px-4 pt-3 pb-3 shrink-0 space-y-3">
-        <div className="flex gap-2.5">
+        <div className="flex gap-2">
           <button
             onClick={onLocate}
             disabled={locating}
-            className="flex items-center justify-center w-11 h-11 rounded-2xl bg-sky-500 text-white shadow-md shadow-sky-500/25 hover:bg-sky-600 active:scale-95 transition disabled:opacity-60"
+            className="flex items-center justify-center w-11 h-11 rounded-2xl bg-sky-500 text-white shadow-md shadow-sky-500/25 hover:bg-sky-600 active:scale-95 transition disabled:opacity-60 shrink-0"
             aria-label="Locate me"
           >
             <LocateFixed className={clsx("w-5 h-5", locating && "animate-pulse")} />
@@ -516,6 +556,9 @@ export default function SearchPanel({
                   ? setRouteQuery(e.target.value)
                   : setSearchText(e.target.value)
               }
+              onKeyDown={(e) => {
+                if (e.key === "Enter") inputRef.current?.blur();
+              }}
               className="w-full h-11 pl-10 pr-10 rounded-2xl bg-slate-100 border-0 text-[15px] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500/40 transition"
             />
             {(searchText || routeQuery) && (
@@ -532,6 +575,28 @@ export default function SearchPanel({
               </button>
             )}
           </div>
+
+          <button
+            onClick={() => {
+              inputRef.current?.blur();
+              if (mode !== "routes") setMode("routes");
+            }}
+            className="flex items-center justify-center w-11 h-11 rounded-2xl bg-slate-100 text-slate-600 hover:bg-slate-200 active:bg-sky-500 active:text-white active:scale-95 transition shrink-0"
+            aria-label="搜尋"
+          >
+            <Search className="w-5 h-5" />
+          </button>
+
+          <button
+            onClick={() => {
+              mutate(() => true);
+              refreshETA();
+            }}
+            className="flex items-center justify-center w-11 h-11 rounded-2xl bg-slate-100 text-slate-600 hover:bg-slate-200 active:bg-sky-500 active:text-white active:scale-95 transition shrink-0"
+            aria-label="重新整理"
+          >
+            <RefreshCw className="w-5 h-5" />
+          </button>
         </div>
 
         <div className="flex p-1 bg-slate-100 rounded-2xl">
@@ -637,7 +702,7 @@ export default function SearchPanel({
               ) : (
                 <div className="px-4">
                   {etas.map((eta) => (
-                    <ETAItem key={eta.id} eta={eta} />
+                    <ETAItem key={eta.id} eta={eta} onTapRoute={handleTapEtaRoute} />
                   ))}
                 </div>
               )}

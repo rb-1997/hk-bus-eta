@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect, useRef } from "react";
-import useSWR from "swr";
+import useSWR, { useSWRConfig } from "swr";
 import {
   Search,
   MapPin,
@@ -74,12 +74,14 @@ function NearbyStopCard({
   isFavorite,
   toggleFavorite,
   defaultExpanded,
+  onTapRoute,
 }: {
   stop: BusStop;
   distance: number;
   isFavorite: (id: string) => boolean;
   toggleFavorite: (stop: BusStop) => void;
   defaultExpanded: boolean;
+  onTapRoute: (eta: ETA) => void;
 }) {
   const [expanded, setExpanded] = useState(defaultExpanded);
   const { etas, isLoading, refresh } = useETA(stop, true);
@@ -118,16 +120,20 @@ function NearbyStopCard({
           <div className="py-3 text-[13px] text-slate-400">暫時冇班次資料</div>
         ) : (
           shown.map((e) => (
-            <div key={e.id} className="flex items-center gap-2 py-2 border-t border-slate-50">
+            <button
+              key={e.id}
+              onClick={() => onTapRoute(e)}
+              className="w-full flex items-center gap-2 py-2 border-t border-slate-50 active:bg-sky-50 text-left"
+            >
               <OperatorBadge operator={e.operator} />
-              <span className="font-bold text-slate-900 text-[14px] tabular-nums">{e.route}</span>
+              <span className="font-bold text-sky-700 text-[14px] tabular-nums underline decoration-sky-200 underline-offset-2">{e.route}</span>
               <span className="text-[12px] text-slate-500 truncate flex-1">
                 往 {e.destTc || e.destEn}
               </span>
               <span className={clsx("text-[13px] font-semibold tabular-nums shrink-0", etaColor(e))}>
                 {etaText(e)}
               </span>
-            </div>
+            </button>
           ))
         )}
       </div>
@@ -357,6 +363,7 @@ export default function LiteApp() {
   const [routeQuery, setRouteQuery] = useState("");
   const [selectedRoute, setSelectedRoute] = useState<BusRoute | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const { mutate } = useSWRConfig();
 
   const {
     lat: userLat,
@@ -408,13 +415,44 @@ export default function LiteApp() {
     setTab("routes");
   };
 
+  // Tap a route in the nearby ETA list -> jump to its full stop list
+  const handleTapEtaRoute = async (eta: ETA) => {
+    try {
+      const { searchRoutes } = await import("@/utils/static-api");
+      const candidates = await searchRoutes(eta.route);
+      // Prefer same operator, then match destination
+      const sameOp = candidates.filter((r) => r.operator === eta.operator);
+      const pool = sameOp.length > 0 ? sameOp : candidates;
+      let best: BusRoute | null = null;
+      if (eta.destTc) {
+        best = pool.find((r) => r.destTc === eta.destTc || r.destEn === eta.destEn) || null;
+      }
+      if (!best) {
+        best =
+          pool.find(
+            (r) =>
+              (eta.destTc && (r.destTc.includes(eta.destTc) || eta.destTc.includes(r.destTc))) ||
+              (eta.destEn && (r.destEn.toLowerCase().includes(eta.destEn.toLowerCase()) || eta.destEn.toLowerCase().includes(r.destEn.toLowerCase())))
+          ) || null;
+      }
+      if (!best) best = pool[0] || null;
+      if (best) {
+        setRouteQuery("");
+        setSelectedRoute(best);
+        setTab("routes");
+      }
+    } catch {
+      /* ignore */
+    }
+  };
+
   const favCount = favorites.length + favRoutes.length;
 
   return (
     <main className="h-[100dvh] w-full flex flex-col bg-slate-100 overflow-hidden">
       {/* header */}
       <header className="shrink-0 bg-white border-b border-slate-200 px-4 pt-3 pb-2.5">
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2">
           <button
             onClick={requestLocation}
             disabled={geoLoading}
@@ -435,6 +473,11 @@ export default function LiteApp() {
                 setTab("routes");
                 setSelectedRoute(null);
               }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  inputRef.current?.blur();
+                }
+              }}
               className="w-full h-11 pl-10 pr-9 rounded-2xl bg-slate-100 border-0 text-[15px] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500/40"
             />
             {routeQuery && (
@@ -450,6 +493,28 @@ export default function LiteApp() {
               </button>
             )}
           </div>
+          <button
+            onClick={() => {
+              inputRef.current?.blur();
+              if (routeQuery.trim()) {
+                setTab("routes");
+              }
+            }}
+            className="flex items-center justify-center w-11 h-11 rounded-2xl bg-slate-100 text-slate-600 active:bg-sky-500 active:text-white active:scale-95 transition shrink-0"
+            aria-label="搜尋"
+          >
+            <Search className="w-5 h-5" />
+          </button>
+          <button
+            onClick={() => {
+              mutate(() => true);
+              if (tab === "nearby") requestLocation();
+            }}
+            className="flex items-center justify-center w-11 h-11 rounded-2xl bg-slate-100 text-slate-600 active:bg-sky-500 active:text-white active:scale-95 transition shrink-0"
+            aria-label="重新整理"
+          >
+            <RefreshCw className="w-5 h-5" />
+          </button>
         </div>
 
         {/* tabs */}
@@ -532,6 +597,7 @@ export default function LiteApp() {
                 isFavorite={isFavorite}
                 toggleFavorite={toggleFavorite}
                 defaultExpanded={i === 0}
+                onTapRoute={handleTapEtaRoute}
               />
             ))}
           </>
@@ -746,6 +812,7 @@ export default function LiteApp() {
                       isFavorite={isFavorite}
                       toggleFavorite={toggleFavorite}
                       defaultExpanded={false}
+                      onTapRoute={handleTapEtaRoute}
                     />
                   );
                 })}

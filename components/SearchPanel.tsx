@@ -70,6 +70,13 @@ function OperatorBadge({ operator }: { operator: string }) {
       </span>
     );
   }
+  if (operator === "MTRT") {
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold tracking-wide bg-[#8e44ad] text-white shadow-sm">
+        鐵路
+      </span>
+    );
+  }
   return (
     <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold tracking-wide bg-blue-600 text-white shadow-sm">
       CTB
@@ -416,7 +423,11 @@ export default function SearchPanel({
   const setSelectedRoute = onSelectRoute;
 
   const operatorForApi =
-    selectedRoute?.operator === "LWB" ? "KMB" : selectedRoute?.operator ?? null;
+    selectedRoute?.operator === "LWB"
+      ? "KMB"
+      : selectedRoute?.operator === "MTRT"
+        ? null
+        : (selectedRoute?.operator ?? null);
 
   const { stopSeqs } = useRouteStops(
     selectedRoute?.route || null,

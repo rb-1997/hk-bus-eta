@@ -1,4 +1,4 @@
-export type Operator = "KMB" | "CTB" | "LWB" | "GMB" | "MTR";
+export type Operator = "KMB" | "CTB" | "LWB" | "GMB" | "MTR" | "MTRT";
 
 export interface BusStop {
   id: string; // unified or original
@@ -39,6 +39,15 @@ export interface BusRoute {
     code: string;
     route_id: number;
     route_seq: number;
+  };
+  // For MTR trains (heavy rail)
+  mtrt?: {
+    line: string;
+    lineTc: string;
+    lineEn: string;
+    sta?: string;
+    staTc?: string;
+    staEn?: string;
   };
 }
 

@@ -22,6 +22,7 @@ import { useFavorites } from "@/hooks/useFavorites";
 import { useFavoriteRoutes } from "@/hooks/useFavoriteRoutes";
 import { useFavoriteHearts } from "@/hooks/useFavoriteHearts";
 import { useRoutesSortedByDistance } from "@/hooks/useRoutesSortedByDistance";
+import { MTRTStationETAs } from "@/components/MTRTStationETAs";
 import { findClosestStops, haversineDistance } from "@/utils/geo";
 import clsx from "clsx";
 
@@ -46,6 +47,13 @@ function OperatorBadge({ operator }: { operator: string }) {
     return (
       <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#c0392b] text-white shrink-0">
         港鐵
+      </span>
+    );
+  }
+  if (operator === "MTRT") {
+    return (
+      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#8e44ad] text-white shrink-0">
+        鐵路
       </span>
     );
   }
@@ -430,7 +438,11 @@ export default function LiteApp() {
   const sortedRoutes = useRoutesSortedByDistance(searchedRoutes, userLat, userLng);
 
   const operatorForApi =
-    selectedRoute?.operator === "LWB" ? "KMB" : selectedRoute?.operator ?? null;
+    selectedRoute?.operator === "LWB"
+      ? "KMB"
+      : selectedRoute?.operator === "MTRT"
+        ? null // MTRT handled separately (station-based, not route-based)
+        : (selectedRoute?.operator ?? null);
   const { stopSeqs, isLoading: stopsListLoading } = useRouteStops(
     selectedRoute?.route || null,
     operatorForApi,
@@ -728,7 +740,11 @@ export default function LiteApp() {
                   </button>
                 </div>
 
-                {stopsListLoading ? (
+                {selectedRoute.operator === "MTRT" ? (
+                  <div className="mt-3">
+                    <MTRTStationETAs route={selectedRoute} />
+                  </div>
+                ) : stopsListLoading ? (
                   <div className="bg-white rounded-2xl p-6 mt-3 text-center text-[14px] text-slate-500">
                     載入站表緊…
                   </div>

@@ -21,11 +21,17 @@ let routesCache: { kmb: any[]; ctb: any[] } | null = null;
 let routesCacheAt = 0;
 let gmbIndexCache: any[] | null = null;
 let mtrIndexCache: any[] | null = null;
+let mtrTrainCache: any | null = null;
 const STOPS_TTL = 24 * 3600 * 1000;
 const ROUTES_TTL = 24 * 3600 * 1000;
 
 const GMB_PROXY =
   "https://hengfuk-gmb-proxy-rb-1997s-projects.vercel.app/api/gmb-proxy?path=";
+
+// MTR Next Train proxy (user deploys mtr-proxy.js to the same Vercel project)
+// The MTR API has no CORS, so browsers must go through this proxy.
+const MTR_PROXY =
+  "https://hengfuk-gmb-proxy-rb-1997s-projects.vercel.app/api/mtr-proxy?";
 
 async function plainFetch(url: string) {
   const res = await fetch(url);
@@ -230,6 +236,54 @@ export async function searchRoutes(query: string): Promise<BusRoute[]> {
     /* MTR index optional */
   }
 
+  // MTR Trains (heavy rail, bundled static from opendata.mtr.com.hk)
+  // Search by station name -> returns stations (each station is a "stop")
+  try {
+    if (!mtrTrainCache) {
+      mtrTrainCache = await plainFetch("mtr/train-stations.json").catch(() => null);
+    }
+    if (mtrTrainCache?.lines) {
+      const lineNames: Record<string, { tc: string; en: string }> = {
+        AEL: { tc: "機場快綫", en: "Airport Express" },
+        TCL: { tc: "東涌綫", en: "Tung Chung Line" },
+        TML: { tc: "屯馬綫", en: "Tuen Ma Line" },
+        TKL: { tc: "將軍澳綫", en: "Tseung Kwan O Line" },
+        EAL: { tc: "東鐵綫", en: "East Rail Line" },
+        SIL: { tc: "南港島綫", en: "South Island Line" },
+        TWL: { tc: "荃灣綫", en: "Tsuen Wan Line" },
+        ISL: { tc: "港島綫", en: "Island Line" },
+        KTL: { tc: "觀塘綫", en: "Kwun Tong Line" },
+        DRL: { tc: "迪士尼綫", en: "Disneyland Resort Line" },
+      };
+      for (const [lineCode, stations] of Object.entries(mtrTrainCache.lines)) {
+        if (lineCode === "" || !Array.isArray(stations)) continue;
+        const ln = lineNames[lineCode] || { tc: lineCode, en: lineCode };
+        for (const s of stations as any[]) {
+          const staMatch =
+            !q ||
+            (s.tc || "").includes(query.trim()) ||
+            (s.en || "").toUpperCase().includes(q) ||
+            ln.tc.includes(query.trim()) ||
+            ln.en.toUpperCase().includes(q);
+          if (!staMatch) continue;
+          routes.push({
+            id: `MTRT-${lineCode}-${s.code}`,
+            operator: "MTRT",
+            route: `${s.tc}站`,
+            originEn: s.en,
+            originTc: s.tc,
+            destEn: ln.en,
+            destTc: ln.tc,
+            directionLabel: `${ln.tc} · ${s.tc}`,
+            mtrt: { line: lineCode, lineTc: ln.tc, lineEn: ln.en, sta: s.code, staTc: s.tc, staEn: s.en },
+          });
+        }
+      }
+    }
+  } catch {
+    /* MTR train optional */
+  }
+
   return q ? routes : routes.slice(0, 100);
 }
 
@@ -300,7 +354,7 @@ export async function getRouteStops(
 
 export interface ETAQuery {
   stopId?: string;
-  operator?: "KMB" | "CTB" | "GMB" | "MTR" | null;
+  operator?: "KMB" | "CTB" | "GMB" | "MTR" | "MTRT" | null;
   originalId?: string;
   routes?: string; // comma separated, for CTB
   gmb?: {
@@ -316,6 +370,12 @@ export interface ETAQuery {
     stopId: string; // e.g. "K52-nD010"
     dest_tc: string;
     dest_en: string;
+  };
+  mtrt?: {
+    line: string; // e.g. "TML"
+    sta: string; // e.g. "TUM"
+    lineTc: string;
+    lineEn: string;
   };
 }
 
@@ -357,6 +417,55 @@ export async function getETAs(query: ETAQuery): Promise<ETA[]> {
             isRealtime: b.isScheduled !== "1",
           };
         });
+      }
+    } catch {
+      etas = [];
+    }
+    return etas;
+  }
+
+  // MTR Trains via proxy (official API has no CORS)
+  // Returns next 4 trains per direction (UP/DOWN)
+  if (operator === "MTRT" && query.mtrt) {
+    const { line, sta, lineTc, lineEn } = query.mtrt;
+    try {
+      const res = await fetch(
+        `${MTR_PROXY}line=${line}&sta=${sta}&lang=TC`
+      ).then((r) => r.json());
+      if (res.status === 1 && res.data) {
+        const key = `${line}-${sta}`;
+        const stationData = res.data[key];
+        if (stationData) {
+          const trains: ETA[] = [];
+          // UP and DOWN directions
+          for (const dir of ["UP", "DOWN"]) {
+            const list = stationData[dir] || [];
+            for (const t of list.slice(0, 4)) {
+              if (t.valid !== "Y") continue;
+              // time is "yyyy-MM-dd HH:mm:ss", curr_time is similar
+              // Calculate minutes from curr_time
+              const curr = new Date(stationData.curr_time.replace(" ", "T"));
+              const arr = new Date(t.time.replace(" ", "T"));
+              const mins = Math.max(0, Math.round((arr.getTime() - curr.getTime()) / 60000));
+              // dest is station code, need to map to name
+              // For now use the code, UI can map via train-stations.json
+              trains.push({
+                id: `mtrt-${line}-${sta}-${dir}-${t.seq}`,
+                operator: "MTRT" as const,
+                route: lineTc,
+                destEn: t.dest, // station code, mapped in UI
+                destTc: t.dest, // station code, mapped in UI
+                eta: t.time,
+                etaMinutes: mins,
+                remarkEn: `Plat ${t.plat}`,
+                remarkTc: `${t.plat}號月台`,
+                sequence: trains.length + 1,
+                isRealtime: true,
+              });
+            }
+          }
+          etas = trains;
+        }
       }
     } catch {
       etas = [];

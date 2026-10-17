@@ -552,7 +552,7 @@ export default function SearchPanel({
                   : "text-slate-500 hover:text-slate-700"
               )}
             >
-              {m === "favorites" ? `★ ${favorites.length}` : m}
+              {m === "favorites" ? `★ ${favorites.length + favRoutes.length}` : m}
             </button>
           ))}
         </div>

@@ -23,6 +23,9 @@ import { useFavoriteRoutes } from "@/hooks/useFavoriteRoutes";
 import { useFavoriteHearts } from "@/hooks/useFavoriteHearts";
 import { useRoutesSortedByDistance } from "@/hooks/useRoutesSortedByDistance";
 import { MTRTStationETAs } from "@/components/MTRTStationETAs";
+import { LRTStationETAs } from "@/components/LRTStationETAs";
+import { useNearbyTransport } from "@/hooks/useNearbyTransport";
+import { NearbyTransportCard } from "@/components/NearbyTransportCard";
 import { findClosestStops, haversineDistance } from "@/utils/geo";
 import clsx from "clsx";
 
@@ -54,6 +57,13 @@ function OperatorBadge({ operator }: { operator: string }) {
     return (
       <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#8e44ad] text-white shrink-0">
         鐵路
+      </span>
+    );
+  }
+  if (operator === "LRT") {
+    return (
+      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#e67e22] text-white shrink-0">
+        輕鐵
       </span>
     );
   }
@@ -440,8 +450,8 @@ export default function LiteApp() {
   const operatorForApi =
     selectedRoute?.operator === "LWB"
       ? "KMB"
-      : selectedRoute?.operator === "MTRT"
-        ? null // MTRT handled separately (station-based, not route-based)
+      : selectedRoute?.operator === "MTRT" || selectedRoute?.operator === "LRT"
+        ? null // MTRT/LRT handled separately (station-based, not route-based)
         : (selectedRoute?.operator ?? null);
   const { stopSeqs, isLoading: stopsListLoading } = useRouteStops(
     selectedRoute?.route || null,
@@ -451,13 +461,8 @@ export default function LiteApp() {
   );
 
   // Nearby stops within 800m, top 8
-  const nearby = useMemo(() => {
-    if (!userLat || !userLng || stops.length === 0) return [];
-    return findClosestStops(stops, userLat, userLng, 30)
-      .map((s) => ({ stop: s, dist: haversineDistance(userLat, userLng, s.lat, s.lng) }))
-      .filter((x) => x.dist <= 800)
-      .slice(0, 8);
-  }, [stops, userLat, userLng]);
+  // Nearby: ALL transport within 800m (bus + MTR + Light Rail), no limit, sorted by distance
+  const nearby = useNearbyTransport(userLat, userLng, stops);
 
   const hasLocation = !!userLat && !!userLng;
   const showLocatePrompt = !hasLocation && !geoLoading;
@@ -678,13 +683,10 @@ export default function LiteApp() {
               </div>
             )}
 
-            {nearby.map(({ stop, dist }, i) => (
-              <NearbyStopCard
-                key={stop.id}
-                stop={stop}
-                distance={dist}
-                isFavorite={isFavorite}
-                toggleFavorite={toggleFavorite}
+            {nearby.map((item, i) => (
+              <NearbyTransportCard
+                key={item.id}
+                item={item}
                 defaultExpanded={i === 0}
                 onTapRoute={handleTapEtaRoute}
               />
@@ -698,7 +700,7 @@ export default function LiteApp() {
               <div className="bg-white rounded-2xl p-6 text-center text-[14px] text-slate-500">
                 喺上面輸入路線編號搜尋
                 <br />
-                <span className="text-[12px]">支援九巴、城巴、綠Van、港鐵巴士</span>
+                <span className="text-[12px]">支援九巴、城巴、綠Van、港鐵巴士、港鐵、輕鐵</span>
               </div>
             )}
 
@@ -743,6 +745,10 @@ export default function LiteApp() {
                 {selectedRoute.operator === "MTRT" ? (
                   <div className="mt-3">
                     <MTRTStationETAs route={selectedRoute} />
+                  </div>
+                ) : selectedRoute.operator === "LRT" ? (
+                  <div className="mt-3">
+                    <LRTStationETAs route={selectedRoute} />
                   </div>
                 ) : stopsListLoading ? (
                   <div className="bg-white rounded-2xl p-6 mt-3 text-center text-[14px] text-slate-500">

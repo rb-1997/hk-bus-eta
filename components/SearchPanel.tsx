@@ -425,7 +425,7 @@ export default function SearchPanel({
   const operatorForApi =
     selectedRoute?.operator === "LWB"
       ? "KMB"
-      : selectedRoute?.operator === "MTRT"
+      : selectedRoute?.operator === "MTRT" || selectedRoute?.operator === "LRT"
         ? null
         : (selectedRoute?.operator ?? null);
 

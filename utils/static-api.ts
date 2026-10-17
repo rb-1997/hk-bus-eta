@@ -22,6 +22,7 @@ let routesCacheAt = 0;
 let gmbIndexCache: any[] | null = null;
 let mtrIndexCache: any[] | null = null;
 let mtrTrainCache: any | null = null;
+let lrtCache: any | null = null;
 const STOPS_TTL = 24 * 3600 * 1000;
 const ROUTES_TTL = 24 * 3600 * 1000;
 
@@ -283,6 +284,36 @@ export async function searchRoutes(query: string): Promise<BusRoute[]> {
     /* MTR train optional */
   }
 
+  // Light Rail (68 stops, bundled with coords from Wikipedia)
+  // Search by stop name
+  try {
+    if (!lrtCache) {
+      lrtCache = await plainFetch("mtr/light-rail.json").catch(() => null);
+    }
+    if (lrtCache?.stops) {
+      for (const s of Object.values(lrtCache.stops) as any[]) {
+        const match =
+          !q ||
+          (s.tc || "").includes(query.trim()) ||
+          (s.en || "").toUpperCase().includes(q);
+        if (!match) continue;
+        routes.push({
+          id: `LRT-${s.id}`,
+          operator: "LRT",
+          route: `${s.tc}站`,
+          originEn: s.en,
+          originTc: s.tc,
+          destEn: "Light Rail",
+          destTc: "輕鐵",
+          directionLabel: `輕鐵 · ${s.tc}`,
+          lrt: { stationId: s.id, tc: s.tc, en: s.en },
+        });
+      }
+    }
+  } catch {
+    /* LRT optional */
+  }
+
   return q ? routes : routes.slice(0, 100);
 }
 
@@ -353,7 +384,7 @@ export async function getRouteStops(
 
 export interface ETAQuery {
   stopId?: string;
-  operator?: "KMB" | "CTB" | "GMB" | "MTR" | "MTRT" | null;
+  operator?: "KMB" | "CTB" | "GMB" | "MTR" | "MTRT" | "LRT" | null;
   originalId?: string;
   routes?: string; // comma separated, for CTB
   gmb?: {
@@ -375,6 +406,11 @@ export interface ETAQuery {
     sta: string; // e.g. "TUM"
     lineTc: string;
     lineEn: string;
+  };
+  lrt?: {
+    stationId: string; // e.g. "920"
+    tc: string;
+    en: string;
   };
 }
 
@@ -465,6 +501,48 @@ export async function getETAs(query: ETAQuery): Promise<ETA[]> {
           }
           etas = trains;
         }
+      }
+    } catch {
+      etas = [];
+    }
+    return etas;
+  }
+
+  // Light Rail via direct API (has CORS *, verified 2026-10-18)
+  if (operator === "LRT" && query.lrt) {
+    const { stationId, tc, en } = query.lrt;
+    try {
+      const res = await fetch(
+        `https://rt.data.gov.hk/v1/transport/mtr/lrt/getSchedule?station_id=${stationId}`
+      ).then((r) => r.json());
+      // status: 1 = normal, 2 = no service (e.g. night)
+      if (res.status === 1 && res.platform_list) {
+        const trains: ETA[] = [];
+        for (const plat of res.platform_list) {
+          for (const route of plat.route_list || []) {
+            // time_ch/time_en: e.g. "2分鐘" / "2 mins", or "-" if no data
+            const timeStr = route.time_ch || route.time_en || "-";
+            let mins: number | null = null;
+            const m = timeStr.match(/(\d+)/);
+            if (m) mins = parseInt(m[1], 10);
+            // "即將到站" or "Arriving" -> 0
+            if (timeStr.includes("即將") || timeStr.toLowerCase().includes("arriving")) mins = 0;
+            trains.push({
+              id: `lrt-${stationId}-${plat.platform_id}-${route.route_no}`,
+              operator: "LRT" as const,
+              route: `${route.route_no}號`,
+              destEn: route.dest_en || "",
+              destTc: route.dest_ch || "",
+              eta: null,
+              etaMinutes: mins,
+              remarkEn: route.time_en || undefined,
+              remarkTc: route.time_ch || undefined,
+              sequence: trains.length + 1,
+              isRealtime: true,
+            });
+          }
+        }
+        etas = trains;
       }
     } catch {
       etas = [];

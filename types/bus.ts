@@ -1,4 +1,4 @@
-export type Operator = "KMB" | "CTB" | "LWB" | "GMB" | "MTR" | "MTRT";
+export type Operator = "KMB" | "CTB" | "LWB" | "GMB" | "MTR" | "MTRT" | "LRT";
 
 export interface BusStop {
   id: string; // unified or original
@@ -48,6 +48,12 @@ export interface BusRoute {
     sta?: string;
     staTc?: string;
     staEn?: string;
+  };
+  // For Light Rail
+  lrt?: {
+    stationId: string;
+    tc: string;
+    en: string;
   };
 }
 

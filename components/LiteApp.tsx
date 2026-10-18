@@ -27,6 +27,7 @@ import { LRTStationETAs } from "@/components/LRTStationETAs";
 import { useNearbyTransport } from "@/hooks/useNearbyTransport";
 import { NearbyTransportCard } from "@/components/NearbyTransportCard";
 import { HeartFocusView } from "@/components/HeartFocusView";
+import { HeartListItem } from "@/components/HeartListItem";
 import { findClosestStops, haversineDistance } from "@/utils/geo";
 import clsx from "clsx";
 
@@ -917,48 +918,16 @@ export default function LiteApp() {
                   </div>
                 )}
                 {hearts.map((h, idx) => (
-                  <div
+                  <HeartListItem
                     key={h.id}
-                    className="bg-white rounded-2xl border border-rose-100 shadow-sm px-4 py-3 flex items-center gap-3"
-                  >
-                    {editOrder && (
-                      <div className="flex flex-col gap-1 shrink-0">
-                        <button onClick={() => moveHeart(h.id, "up")} disabled={idx === 0}
-                          className="p-1.5 rounded-lg bg-slate-100 disabled:opacity-30" aria-label="上移">
-                          <span className="text-[15px]">▲</span>
-                        </button>
-                        <button onClick={() => moveHeart(h.id, "down")} disabled={idx === hearts.length - 1}
-                          className="p-1.5 rounded-lg bg-slate-100 disabled:opacity-30" aria-label="下移">
-                          <span className="text-[15px]">▼</span>
-                        </button>
-                      </div>
-                    )}
-                    <button
-                      onClick={() => !editOrder && handleTapHeart(h)}
-                      className="flex-1 min-w-0 text-left flex items-center gap-2.5"
-                    >
-                      <Heart className="w-5 h-5 text-rose-500 fill-rose-500 shrink-0" />
-                      <div className="min-w-0">
-                        <div className="font-bold text-slate-900 text-[17px]">
-                          {h.route}
-                          <span className="ml-2 text-[13px] font-medium text-slate-500">
-                            第 {h.stopSeq} 站 · {h.stopNameTc || h.stopNameEn}
-                          </span>
-                        </div>
-                        <div className="text-[14px] text-slate-500 truncate">
-                          往 {h.destTc || h.destEn}
-                          {h.directionLabel && ` · ${h.directionLabel}`}
-                        </div>
-                      </div>
-                    </button>
-                    <button
-                      onClick={() => removeHeart(h.id)}
-                      className="p-2 shrink-0"
-                      aria-label="取消心水站"
-                    >
-                      <X className="w-4 h-4 text-slate-300" />
-                    </button>
-                  </div>
+                    heart={h}
+                    index={idx}
+                    total={hearts.length}
+                    editOrder={editOrder}
+                    onTap={() => handleTapHeart(h)}
+                    onRemove={() => removeHeart(h.id)}
+                    onMove={(dir) => moveHeart(h.id, dir)}
+                  />
                 ))}
               </div>
             )}

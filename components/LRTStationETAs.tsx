@@ -1,7 +1,6 @@
 "use client";
 
 import useSWR from "swr";
-import { getETAs } from "@/utils/static-api";
 import type { BusRoute } from "@/types/bus";
 import { clsx } from "clsx";
 
@@ -10,28 +9,54 @@ import { clsx } from "clsx";
  * Shows next trains for a Light Rail stop.
  */
 export function LRTStationETAs({ route }: { route: BusRoute }) {
-  // Primary: route.lrt; Fallback: parse from route.id (LRT-{stationId})
+  // Primary: route.lrt; Fallback: parse from route.id (LRT-{stationId} or LRT-R-{route})
   let lrt = route.lrt;
   if (!lrt && route.id.startsWith("LRT-")) {
-    const stationId = route.id.replace("LRT-", "");
-    // Try to get name from route fields
+    const stationId = route.id.replace("LRT-", "").replace("R-", "");
     lrt = {
       stationId,
-      tc: route.originTc || route.route.replace("站", ""),
+      tc: route.originTc || route.route.replace("站", "").replace("輕鐵 ", "").replace("號", ""),
       en: route.originEn || "",
     };
   }
   const { data: etas, isLoading } = useSWR(
-    lrt ? ["lrt-etas", lrt.stationId] : null,
-    () =>
-      getETAs({
-        operator: "LRT",
-        lrt: {
-          stationId: lrt!.stationId,
-          tc: lrt!.tc,
-          en: lrt!.en,
-        },
-      }),
+    lrt ? ["lrt-etas-direct", lrt.stationId] : null,
+    async () => {
+      try {
+        const res = await fetch(
+          `https://rt.data.gov.hk/v1/transport/mtr/lrt/getSchedule?station_id=${lrt!.stationId}`
+        ).then((r) => r.json());
+        if (res.status === 1 && res.platform_list) {
+          const trains: any[] = [];
+          for (const plat of res.platform_list) {
+            for (const r of plat.route_list || []) {
+              const timeStr = r.time_ch || r.time_en || "-";
+              let mins: number | null = null;
+              const m = timeStr.match(/(\d+)/);
+              if (m) mins = parseInt(m[1], 10);
+              if (timeStr.includes("即將") || timeStr.toLowerCase().includes("arriving")) mins = 0;
+              trains.push({
+                id: `lrt-${lrt!.stationId}-${plat.platform_id}-${r.route_no}`,
+                operator: "LRT" as const,
+                route: `${r.route_no}號`,
+                destEn: r.dest_en || "",
+                destTc: r.dest_ch || "",
+                eta: null,
+                etaMinutes: mins,
+                remarkEn: r.time_en || undefined,
+                remarkTc: r.time_ch || undefined,
+                sequence: trains.length + 1,
+                isRealtime: true,
+              });
+            }
+          }
+          return trains;
+        }
+      } catch (e) {
+        console.error("LRTStationETAs fetch failed:", e);
+      }
+      return [];
+    },
     {
       refreshInterval: 30000,
       revalidateOnFocus: false,

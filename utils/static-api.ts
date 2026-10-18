@@ -161,6 +161,12 @@ export async function searchRoutes(query: string): Promise<BusRoute[]> {
   }
 
   routes.sort((a, b) => {
+    // Boost LRT route-number matches (e.g. "輕鐵 505號") to the top
+    // when the query is a pure number matching an LRT route
+    const aIsLrtRoute = a.id.startsWith("LRT-R-");
+    const bIsLrtRoute = b.id.startsWith("LRT-R-");
+    if (aIsLrtRoute && !bIsLrtRoute) return -1;
+    if (!aIsLrtRoute && bIsLrtRoute) return 1;
     const numA = parseInt(a.route.replace(/\D/g, "")) || 9999;
     const numB = parseInt(b.route.replace(/\D/g, "")) || 9999;
     if (numA !== numB) return numA - numB;

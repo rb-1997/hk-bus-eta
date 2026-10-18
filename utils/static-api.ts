@@ -291,12 +291,14 @@ export async function searchRoutes(query: string): Promise<BusRoute[]> {
       lrtCache = await plainFetch("mtr/light-rail.json").catch(() => null);
     }
     if (lrtCache) {
-      // Check if query matches a Light Rail route number
+      // Check if query matches a Light Rail route number (e.g. "505" matches "505-1", "505-2")
       const routeNum = query.trim();
       const lrtRoutes = lrtCache.routes || {};
-      if (lrtRoutes[routeNum]) {
-        // Query is an LRT route number - return all stations on that route
-        const stops = lrtRoutes[routeNum] as any[];
+      // Find all directions for this route number
+      const matchingKeys = Object.keys(lrtRoutes).filter(k => k === routeNum || k.startsWith(routeNum + "-"));
+      if (matchingKeys.length > 0) {
+        // Query is an LRT route number - use the first direction's stops
+        const stops = lrtRoutes[matchingKeys[0]] as any[];
         // Add a route header entry first
         const firstStop = stops[0];
         const lastStop = stops[stops.length - 1];

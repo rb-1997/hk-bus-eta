@@ -55,6 +55,8 @@ export interface BusRoute {
     tc: string;
     en: string;
   };
+  // For Light Rail route search results (e.g. "505"), the route number
+  lrtRoute?: string;
 }
 
 // A stop in a route's stop sequence. KMB/CTB resolve coords via the global

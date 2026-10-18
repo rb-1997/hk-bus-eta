@@ -285,29 +285,54 @@ export async function searchRoutes(query: string): Promise<BusRoute[]> {
   }
 
   // Light Rail (68 stops, bundled with coords from Wikipedia)
-  // Search by stop name
+  // Search by stop name OR route number (e.g. "505")
   try {
     if (!lrtCache) {
       lrtCache = await plainFetch("mtr/light-rail.json").catch(() => null);
     }
-    if (lrtCache?.stops) {
-      for (const s of Object.values(lrtCache.stops) as any[]) {
-        const match =
-          !q ||
-          (s.tc || "").includes(query.trim()) ||
-          (s.en || "").toUpperCase().includes(q);
-        if (!match) continue;
+    if (lrtCache) {
+      // Check if query matches a Light Rail route number
+      const routeNum = query.trim();
+      const lrtRoutes = lrtCache.routes || {};
+      if (lrtRoutes[routeNum]) {
+        // Query is an LRT route number - return all stations on that route
+        const stops = lrtRoutes[routeNum] as any[];
+        // Add a route header entry first
+        const firstStop = stops[0];
+        const lastStop = stops[stops.length - 1];
         routes.push({
-          id: `LRT-${s.id}`,
+          id: `LRT-R-${routeNum}`,
           operator: "LRT",
-          route: `${s.tc}站`,
-          originEn: s.en,
-          originTc: s.tc,
-          destEn: "Light Rail",
-          destTc: "輕鐵",
-          directionLabel: `輕鐵 · ${s.tc}`,
-          lrt: { stationId: s.id, tc: s.tc, en: s.en },
+          route: `輕鐵 ${routeNum}號`,
+          originTc: firstStop?.tc || "",
+          originEn: firstStop?.en || "",
+          destTc: lastStop?.tc || "",
+          destEn: lastStop?.en || "",
+          directionLabel: `輕鐵路線 · ${stops.length}個站`,
+          lrt: { stationId: firstStop?.sid || "", tc: firstStop?.tc || "", en: firstStop?.en || "" },
+          lrtRoute: routeNum,
         });
+      }
+      // Also search by stop name (existing)
+      if (lrtCache?.stops) {
+        for (const s of Object.values(lrtCache.stops) as any[]) {
+          const match =
+            !q ||
+            (s.tc || "").includes(query.trim()) ||
+            (s.en || "").toUpperCase().includes(q);
+          if (!match) continue;
+          routes.push({
+            id: `LRT-${s.id}`,
+            operator: "LRT",
+            route: `${s.tc}站`,
+            originEn: s.en,
+            originTc: s.tc,
+            destEn: "Light Rail",
+            destTc: "輕鐵",
+            directionLabel: `輕鐵 · ${s.tc}`,
+            lrt: { stationId: s.id, tc: s.tc, en: s.en },
+          });
+        }
       }
     }
   } catch {

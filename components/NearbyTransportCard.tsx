@@ -123,18 +123,18 @@ export function NearbyTransportCard({
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <KindBadge kind={item.kind} />
-            <span className="font-semibold text-slate-900 text-[15px] truncate">
+            <span className="font-semibold text-slate-900 text-[17px] truncate">
               {item.nameTc}
             </span>
-            <span className="text-[11px] text-sky-600 font-medium tabular-nums shrink-0">
+            <span className="text-[12px] text-sky-600 font-medium tabular-nums shrink-0">
               {distText}
             </span>
           </div>
           {item.nameEn && (
-            <div className="text-[12px] text-slate-400 truncate mt-0.5">{item.nameEn}</div>
+            <div className="text-[13px] text-slate-400 truncate mt-0.5">{item.nameEn}</div>
           )}
           {item.kind === "mtr" && item.mtrt && (
-            <div className="text-[11px] text-purple-600 mt-0.5">{item.mtrt.lineTc}</div>
+            <div className="text-[12px] text-purple-600 mt-0.5">{item.mtrt.lineTc}</div>
           )}
         </div>
         <ChevronDown
@@ -147,9 +147,9 @@ export function NearbyTransportCard({
 
       <div className="px-4 pb-3">
         {isLoading ? (
-          <div className="text-[13px] text-slate-400 py-2">載入班次中…</div>
+          <div className="text-[14px] text-slate-400 py-2">載入班次中…</div>
         ) : !etas || etas.length === 0 ? (
-          <div className="text-[13px] text-slate-400 py-2">暫無班次</div>
+          <div className="text-[14px] text-slate-400 py-2">暫無班次</div>
         ) : (
           <div className="space-y-1.5">
             {shown.map((e, i) => (
@@ -166,15 +166,15 @@ export function NearbyTransportCard({
                 }}
                 className="w-full flex items-center gap-2 py-1.5 text-left active:bg-slate-50 rounded-lg px-1"
               >
-                <span className="font-bold text-sky-700 text-[14px] underline decoration-sky-200 underline-offset-2 shrink-0">
+                <span className="font-bold text-sky-700 text-[15px] underline decoration-sky-200 underline-offset-2 shrink-0">
                   {e.route}
                 </span>
-                <span className="text-[12px] text-slate-500 truncate flex-1">
+                <span className="text-[13px] text-slate-500 truncate flex-1">
                   往 {e.destTc || e.destEn}
                 </span>
                 <span
                   className={clsx(
-                    "text-[13px] font-semibold tabular-nums shrink-0",
+                    "text-[14px] font-semibold tabular-nums shrink-0",
                     etaColor(e),
                     isUrgent(e) && "eta-urgent"
                   )}
@@ -184,7 +184,7 @@ export function NearbyTransportCard({
               </button>
             ))}
             {!expanded && (etas || []).length > 4 && (
-              <div className="text-[11px] text-slate-400 text-center pt-1">
+              <div className="text-[12px] text-slate-400 text-center pt-1">
                 仲有 {(etas || []).length - 4} 班…撳入去睇晒
               </div>
             )}

@@ -78,27 +78,27 @@ export function MTRTStationETAs({ route }: { route: BusRoute }) {
   return (
     <div className="space-y-3">
       <div className="bg-purple-50 border border-purple-100 rounded-2xl p-4">
-        <div className="text-[13px] text-purple-700 font-medium mb-1">
+        <div className="text-[14px] text-purple-700 font-medium mb-1">
           {mtrt.lineTc} · {mtrt.lineEn}
         </div>
-        <div className="text-[18px] font-bold text-slate-900">
+        <div className="text-[19px] font-bold text-slate-900">
           {mtrt.staTc}站
         </div>
-        <div className="text-[13px] text-slate-500">{mtrt.staEn} Station</div>
+        <div className="text-[14px] text-slate-500">{mtrt.staEn} Station</div>
       </div>
 
       {isLoading ? (
-        <div className="text-center py-8 text-slate-400 text-[14px]">
+        <div className="text-center py-8 text-slate-400 text-[15px]">
           載入班次中…
         </div>
       ) : !etas || etas.length === 0 ? (
-        <div className="bg-white rounded-2xl p-6 text-center text-[14px] text-slate-500">
+        <div className="bg-white rounded-2xl p-6 text-center text-[15px] text-slate-500">
           暫無班次（可能已收車）
         </div>
       ) : (
         Array.from(byDest.entries()).map(([dest, list]) => (
           <div key={dest} className="bg-white rounded-2xl border border-slate-100 p-4">
-            <div className="text-[14px] font-semibold text-slate-900 mb-3">
+            <div className="text-[15px] font-semibold text-slate-900 mb-3">
               往 <MTRTDest code={dest} />
             </div>
             <div className="space-y-2">
@@ -106,12 +106,12 @@ export function MTRTStationETAs({ route }: { route: BusRoute }) {
                 const urgent = e.etaMinutes !== null && e.etaMinutes <= 3 && e.etaMinutes >= 0;
                 return (
                   <div key={i} className="flex items-center justify-between">
-                    <span className="text-[13px] text-slate-500">
+                    <span className="text-[14px] text-slate-500">
                       {e.remarkTc || e.remarkEn || `第 ${i + 1} 班`}
                     </span>
                     <span
                       className={clsx(
-                        "text-[15px] font-bold tabular-nums",
+                        "text-[17px] font-bold tabular-nums",
                         e.etaMinutes !== null && e.etaMinutes <= 1
                           ? "text-emerald-600"
                           : e.etaMinutes !== null && e.etaMinutes <= 5
@@ -134,7 +134,7 @@ export function MTRTStationETAs({ route }: { route: BusRoute }) {
         ))
       )}
 
-      <div className="text-[11px] text-slate-400 text-center">
+      <div className="text-[12px] text-slate-400 text-center">
         資料每 30 秒更新 · 港鐵實時班次
       </div>
     </div>

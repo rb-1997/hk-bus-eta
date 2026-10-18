@@ -34,21 +34,21 @@ export function LRTStationETAs({ route }: { route: BusRoute }) {
   return (
     <div className="space-y-3">
       <div className="bg-orange-50 border border-orange-100 rounded-2xl p-4">
-        <div className="text-[13px] text-orange-700 font-medium mb-1">
+        <div className="text-[14px] text-orange-700 font-medium mb-1">
           輕鐵 · Light Rail
         </div>
-        <div className="text-[18px] font-bold text-slate-900">
+        <div className="text-[19px] font-bold text-slate-900">
           {lrt.tc}站
         </div>
-        <div className="text-[13px] text-slate-500">{lrt.en} Stop</div>
+        <div className="text-[14px] text-slate-500">{lrt.en} Stop</div>
       </div>
 
       {isLoading ? (
-        <div className="text-center py-8 text-slate-400 text-[14px]">
+        <div className="text-center py-8 text-slate-400 text-[15px]">
           載入班次中…
         </div>
       ) : !etas || etas.length === 0 ? (
-        <div className="bg-white rounded-2xl p-6 text-center text-[14px] text-slate-500">
+        <div className="bg-white rounded-2xl p-6 text-center text-[15px] text-slate-500">
           暫無班次（可能已收車）
         </div>
       ) : (
@@ -58,14 +58,14 @@ export function LRTStationETAs({ route }: { route: BusRoute }) {
             return (
               <div key={i} className="flex items-center justify-between py-2 border-b border-slate-50 last:border-0">
                 <div className="min-w-0 flex-1">
-                  <div className="text-[15px] font-bold text-slate-900">{e.route}</div>
-                  <div className="text-[12px] text-slate-500 truncate">
+                  <div className="text-[17px] font-bold text-slate-900">{e.route}</div>
+                  <div className="text-[13px] text-slate-500 truncate">
                     往 {e.destTc || e.destEn}
                   </div>
                 </div>
                 <span
                   className={clsx(
-                    "text-[15px] font-bold tabular-nums shrink-0 ml-3",
+                    "text-[17px] font-bold tabular-nums shrink-0 ml-3",
                     e.etaMinutes !== null && e.etaMinutes <= 1
                       ? "text-emerald-600"
                       : e.etaMinutes !== null && e.etaMinutes <= 5
@@ -86,7 +86,7 @@ export function LRTStationETAs({ route }: { route: BusRoute }) {
         </div>
       )}
 
-      <div className="text-[11px] text-slate-400 text-center">
+      <div className="text-[12px] text-slate-400 text-center">
         資料每 30 秒更新 · 輕鐵實時班次
       </div>
     </div>

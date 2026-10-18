@@ -26,6 +26,7 @@ import { MTRTStationETAs } from "@/components/MTRTStationETAs";
 import { LRTStationETAs } from "@/components/LRTStationETAs";
 import { useNearbyTransport } from "@/hooks/useNearbyTransport";
 import { NearbyTransportCard } from "@/components/NearbyTransportCard";
+import { HeartFocusView } from "@/components/HeartFocusView";
 import { findClosestStops, haversineDistance } from "@/utils/geo";
 import clsx from "clsx";
 
@@ -123,15 +124,15 @@ function NearbyStopCard({
       >
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <span className="font-semibold text-slate-900 text-[15px] truncate">
+            <span className="font-semibold text-slate-900 text-[17px] truncate">
               {stop.nameTc || stop.nameEn}
             </span>
-            <span className="text-[11px] text-sky-600 font-medium tabular-nums shrink-0">
+            <span className="text-[12px] text-sky-600 font-medium tabular-nums shrink-0">
               {distance < 1000 ? `${Math.round(distance)}m` : `${(distance / 1000).toFixed(1)}km`}
             </span>
           </div>
           {stop.nameTc && stop.nameEn && stop.nameTc !== stop.nameEn && (
-            <div className="text-[12px] text-slate-400 truncate mt-0.5">{stop.nameEn}</div>
+            <div className="text-[13px] text-slate-400 truncate mt-0.5">{stop.nameEn}</div>
           )}
         </div>
         <ChevronDown
@@ -141,9 +142,9 @@ function NearbyStopCard({
 
       <div className="px-4 pb-1">
         {isLoading && etas.length === 0 ? (
-          <div className="py-3 text-[13px] text-slate-400">載入班次中…</div>
+          <div className="py-3 text-[14px] text-slate-400">載入班次中…</div>
         ) : shown.length === 0 ? (
-          <div className="py-3 text-[13px] text-slate-400">暫時冇班次資料</div>
+          <div className="py-3 text-[14px] text-slate-400">暫時冇班次資料</div>
         ) : (
           shown.map((e) => (
             <button
@@ -152,11 +153,11 @@ function NearbyStopCard({
               className="w-full flex items-center gap-2 py-2 border-t border-slate-50 active:bg-sky-50 text-left"
             >
               <OperatorBadge operator={e.operator} />
-              <span className="font-bold text-sky-700 text-[14px] tabular-nums underline decoration-sky-200 underline-offset-2">{e.route}</span>
-              <span className="text-[12px] text-slate-500 truncate flex-1">
+              <span className="font-bold text-sky-700 text-[15px] tabular-nums underline decoration-sky-200 underline-offset-2">{e.route}</span>
+              <span className="text-[13px] text-slate-500 truncate flex-1">
                 往 {e.destTc || e.destEn}
               </span>
-              <span className={clsx("text-[13px] font-semibold tabular-nums shrink-0", etaColor(e), isUrgent(e) && "eta-urgent")}>
+              <span className={clsx("text-[14px] font-semibold tabular-nums shrink-0", etaColor(e), isUrgent(e) && "eta-urgent")}>
                 {etaText(e)}
               </span>
             </button>
@@ -167,14 +168,14 @@ function NearbyStopCard({
       <div className="flex items-center justify-between px-4 py-2 bg-slate-50/60">
         <button
           onClick={() => refresh()}
-          className="flex items-center gap-1 text-[12px] text-slate-500 active:text-sky-600"
+          className="flex items-center gap-1 text-[13px] text-slate-500 active:text-sky-600"
         >
           <RefreshCw className="w-3.5 h-3.5" />
           更新
         </button>
         <button
           onClick={() => toggleFavorite(stop)}
-          className="flex items-center gap-1 text-[12px] text-slate-500 active:text-amber-500"
+          className="flex items-center gap-1 text-[13px] text-slate-500 active:text-amber-500"
           aria-label="收藏車站"
         >
           {fav ? (
@@ -283,15 +284,15 @@ function LiteRouteStopRow({
 
   return (
     <div className="flex items-center gap-2 py-2.5 px-1 border-b border-slate-100 last:border-0">
-      <div className="w-7 h-7 rounded-full bg-slate-100 text-slate-600 text-[12px] font-semibold flex items-center justify-center shrink-0 tabular-nums">
+      <div className="w-7 h-7 rounded-full bg-slate-100 text-slate-600 text-[13px] font-semibold flex items-center justify-center shrink-0 tabular-nums">
         {seq}
       </div>
       <div className="min-w-0 flex-1">
-        <div className="text-[14px] font-medium text-slate-900 truncate">
+        <div className="text-[15px] font-medium text-slate-900 truncate">
           {displayTc || displayEn || `第 ${seq} 站`}
         </div>
         {displayTc && displayEn && displayTc !== displayEn && (
-          <div className="text-[12px] text-slate-400 truncate">{displayEn}</div>
+          <div className="text-[13px] text-slate-400 truncate">{displayEn}</div>
         )}
       </div>
       {onToggleHeart && (
@@ -312,13 +313,13 @@ function LiteRouteStopRow({
       )}
       <div className="shrink-0 text-right">
         {!etas ? (
-          <span className="text-[12px] text-slate-300">…</span>
+          <span className="text-[13px] text-slate-300">…</span>
         ) : list.length === 0 ? (
-          <span className="text-[12px] text-slate-300">—</span>
+          <span className="text-[13px] text-slate-300">—</span>
         ) : (
           <div className="flex flex-col items-end gap-0.5">
             {list.map((e, i) => (
-              <span key={i} className={clsx("text-[13px] font-semibold tabular-nums", etaColor(e), isUrgent(e) && "eta-urgent")}>
+              <span key={i} className={clsx("text-[14px] font-semibold tabular-nums", etaColor(e), isUrgent(e) && "eta-urgent")}>
                 {etaText(e)}
               </span>
             ))}
@@ -383,7 +384,7 @@ function LiteRouteStopsList({
   if (enriched.length === 0) return null;
   return (
     <div className="mt-3 bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-      <div className="px-4 py-2.5 bg-slate-50 text-[12px] font-semibold text-slate-500">
+      <div className="px-4 py-2.5 bg-slate-50 text-[13px] font-semibold text-slate-500">
         {route.route} · {enriched.length} 個站 · 即時到站
       </div>
       <div className="px-3 pb-2">
@@ -428,6 +429,8 @@ export default function LiteApp() {
   const [favTab, setFavTab] = useState<"hearts" | "routes" | "stops">("hearts");
   const [routeQuery, setRouteQuery] = useState("");
   const [selectedRoute, setSelectedRoute] = useState<BusRoute | null>(null);
+  const [heartFocus, setHeartFocus] = useState<FavoriteRouteStop | null>(null);
+  const [editOrder, setEditOrder] = useState(false);
   const [highlightSeq, setHighlightSeq] = useState<number | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const { mutate } = useSWRConfig();
@@ -443,7 +446,7 @@ export default function LiteApp() {
   const { stops, isLoading: stopsLoading } = useStops();
   const { favorites, isFavorite, toggleFavorite } = useFavorites();
   const { favRoutes, isFavRoute, toggleFavRoute, removeFavRoute } = useFavoriteRoutes();
-  const { hearts, isHeart, toggleHeart, removeHeart } = useFavoriteHearts();
+  const { hearts, isHeart, toggleHeart, removeHeart, moveHeart } = useFavoriteHearts();
   const { routes: searchedRoutes, isLoading: routesLoading } = useRouteSearch(routeQuery);
   const sortedRoutes = useRoutesSortedByDistance(searchedRoutes, userLat, userLng);
 
@@ -570,21 +573,11 @@ export default function LiteApp() {
 
   // Tap a heart favorite -> jump to that route, scrolled to the saved stop
   const handleTapHeart = (h: FavoriteRouteStop) => {
-    const br: BusRoute = {
-      id: h.routeId,
-      route: h.route,
-      operator: h.operator,
-      originTc: h.originTc,
-      originEn: h.originEn,
-      destTc: h.destTc,
-      destEn: h.destEn,
-      directionLabel: h.directionLabel,
-      bound: h.bound,
-      gmb: h.gmb,
-    };
+    // Show ONLY this one stop, not the full list
     setRouteQuery("");
-    setSelectedRoute(br);
-    setHighlightSeq(h.stopSeq);
+    setSelectedRoute(null);
+    setHeartFocus(h);
+    setHighlightSeq(null);
     setTab("routes");
   };
 
@@ -620,7 +613,7 @@ export default function LiteApp() {
                   inputRef.current?.blur();
                 }
               }}
-              className="w-full h-11 pl-10 pr-9 rounded-2xl bg-slate-100 border-0 text-[15px] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500/40"
+              className="w-full h-11 pl-10 pr-9 rounded-2xl bg-slate-100 border-0 text-[17px] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500/40"
             />
             {routeQuery && (
               <button
@@ -672,7 +665,7 @@ export default function LiteApp() {
               key={t.id}
               onClick={() => setTab(t.id as Tab)}
               className={clsx(
-                "flex-1 py-2 text-[13px] font-medium rounded-xl transition-all flex items-center justify-center gap-1",
+                "flex-1 py-2 text-[14px] font-medium rounded-xl transition-all flex items-center justify-center gap-1",
                 tab === t.id
                   ? "bg-white text-slate-900 shadow-sm"
                   : "text-slate-500"
@@ -694,15 +687,15 @@ export default function LiteApp() {
                 <div className="w-14 h-14 rounded-full bg-sky-100 flex items-center justify-center mx-auto mb-3">
                   <Navigation className="w-7 h-7 text-sky-600" />
                 </div>
-                <h2 className="font-semibold text-slate-900 text-[16px] mb-1">
+                <h2 className="font-semibold text-slate-900 text-[17px] mb-1">
                   撳一下，即刻睇附近有咩車
                 </h2>
-                <p className="text-[13px] text-slate-500 mb-4">
+                <p className="text-[14px] text-slate-500 mb-4">
                   定位後自動列出 800 米內所有車站＋實時班次
                 </p>
                 <button
                   onClick={requestLocation}
-                  className="px-6 py-3 rounded-2xl bg-sky-500 text-white font-semibold text-[15px] shadow-md shadow-sky-500/25 active:scale-95 transition"
+                  className="px-6 py-3 rounded-2xl bg-sky-500 text-white font-semibold text-[17px] shadow-md shadow-sky-500/25 active:scale-95 transition"
                 >
                   📍 定位我嘅位置
                 </button>
@@ -710,20 +703,20 @@ export default function LiteApp() {
             )}
 
             {geoLoading && (
-              <div className="bg-white rounded-2xl p-6 text-center text-[14px] text-slate-500">
+              <div className="bg-white rounded-2xl p-6 text-center text-[15px] text-slate-500">
                 定位緊…
               </div>
             )}
 
             {hasLocation && stopsLoading && (
-              <div className="bg-white rounded-2xl p-6 text-center text-[14px] text-slate-500">
+              <div className="bg-white rounded-2xl p-6 text-center text-[15px] text-slate-500">
                 載入車站資料緊…
               </div>
             )}
 
             {hasLocation && !stopsLoading && nearby.length === 0 && (
               <div className="bg-white rounded-2xl p-6 text-center">
-                <p className="text-[14px] text-slate-500">
+                <p className="text-[15px] text-slate-500">
                   800 米內冇車站紀錄
                   <br />
                   試下用上面搜尋路線
@@ -745,36 +738,38 @@ export default function LiteApp() {
 
         {tab === "routes" && (
           <>
-            {!routeQuery && !selectedRoute && (
-              <div className="bg-white rounded-2xl p-6 text-center text-[14px] text-slate-500">
+            {!routeQuery && !selectedRoute && !heartFocus && (
+              <div className="bg-white rounded-2xl p-6 text-center text-[15px] text-slate-500">
                 喺上面輸入路線編號搜尋
                 <br />
-                <span className="text-[12px]">支援九巴、城巴、綠Van、港鐵巴士、港鐵、輕鐵</span>
+                <span className="text-[13px]">支援九巴、城巴、綠Van、港鐵巴士、港鐵、輕鐵</span>
               </div>
             )}
 
-            {selectedRoute ? (
+            {heartFocus ? (
+              <HeartFocusView heart={heartFocus} onBack={() => setHeartFocus(null)} />
+            ) : selectedRoute ? (
               <div>
                 <div className="bg-white rounded-2xl border border-slate-100 shadow-sm px-4 py-3 flex items-center gap-3">
                   <button
                     onClick={() => setSelectedRoute(null)}
-                    className="text-sky-600 text-[14px] font-medium shrink-0"
+                    className="text-sky-600 text-[15px] font-medium shrink-0"
                   >
                     ← 返回
                   </button>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <OperatorBadge operator={selectedRoute.operator} />
-                      <span className="font-bold text-slate-900 text-[16px]">
+                      <span className="font-bold text-slate-900 text-[17px]">
                         {selectedRoute.route}
                       </span>
                       {selectedRoute.directionLabel && (
-                        <span className="text-[12px] text-slate-500">
+                        <span className="text-[13px] text-slate-500">
                           {selectedRoute.directionLabel}
                         </span>
                       )}
                     </div>
-                    <div className="text-[13px] text-slate-500 truncate mt-0.5">
+                    <div className="text-[14px] text-slate-500 truncate mt-0.5">
                       {selectedRoute.originTc} → {selectedRoute.destTc}
                     </div>
                   </div>
@@ -800,7 +795,7 @@ export default function LiteApp() {
                     <LRTStationETAs route={selectedRoute} />
                   </div>
                 ) : stopsListLoading ? (
-                  <div className="bg-white rounded-2xl p-6 mt-3 text-center text-[14px] text-slate-500">
+                  <div className="bg-white rounded-2xl p-6 mt-3 text-center text-[15px] text-slate-500">
                     載入站表緊…
                   </div>
                 ) : (
@@ -818,12 +813,12 @@ export default function LiteApp() {
               routeQuery && (
                 <div className="space-y-2">
                   {routesLoading && (
-                    <div className="text-center text-[13px] text-slate-400 py-4">
+                    <div className="text-center text-[14px] text-slate-400 py-4">
                       搜尋緊…
                     </div>
                   )}
                   {!routesLoading && sortedRoutes.length === 0 && (
-                    <div className="bg-white rounded-2xl p-6 text-center text-[14px] text-slate-500">
+                    <div className="bg-white rounded-2xl p-6 text-center text-[15px] text-slate-500">
                       搵唔到「{routeQuery}」
                     </div>
                   )}
@@ -838,19 +833,19 @@ export default function LiteApp() {
                       >
                         <OperatorBadge operator={r.operator} />
                         <div className="min-w-0">
-                          <div className="font-bold text-slate-900 text-[15px]">
+                          <div className="font-bold text-slate-900 text-[17px]">
                             {r.route}
                             {r.directionLabel && (
-                              <span className="ml-2 text-[12px] font-medium text-slate-500">
+                              <span className="ml-2 text-[13px] font-medium text-slate-500">
                                 {r.directionLabel}
                               </span>
                             )}
                           </div>
-                          <div className="text-[13px] text-slate-500 truncate">
+                          <div className="text-[14px] text-slate-500 truncate">
                             {r.originTc} → {r.destTc}
                           </div>
                           {r.originEn && (
-                            <div className="text-[11px] text-slate-400 truncate">
+                            <div className="text-[12px] text-slate-400 truncate">
                               {r.originEn} → {r.destEn}
                             </div>
                           )}
@@ -881,9 +876,9 @@ export default function LiteApp() {
               {(["hearts", "routes", "stops"] as const).map((t) => (
                 <button
                   key={t}
-                  onClick={() => setFavTab(t)}
+                  onClick={() => { setFavTab(t); setEditOrder(false); }}
                   className={clsx(
-                    "flex-1 py-2 text-[13px] font-medium rounded-xl transition-all flex items-center justify-center gap-1",
+                    "flex-1 py-2 text-[14px] font-medium rounded-xl transition-all flex items-center justify-center gap-1",
                     favTab === t
                       ? "bg-slate-100 text-slate-900"
                       : "text-slate-500"
@@ -899,34 +894,58 @@ export default function LiteApp() {
                 </button>
               ))}
             </div>
+            {favTab === "hearts" && hearts.length > 1 && (
+              <div className="flex justify-end mt-2">
+                <button
+                  onClick={() => setEditOrder(!editOrder)}
+                  className={editOrder
+                    ? "text-[14px] font-medium px-3 py-1.5 rounded-full bg-sky-600 text-white"
+                    : "text-[14px] font-medium px-3 py-1.5 rounded-full bg-white text-sky-600 border border-sky-200"}
+                >
+                  {editOrder ? "✓ 完成排序" : "✎ 編輯次序"}
+                </button>
+              </div>
+            )}
 
             {favTab === "hearts" && (
               <div className="space-y-2">
                 {hearts.length === 0 && (
-                  <div className="bg-white rounded-2xl p-6 text-center text-[14px] text-slate-500">
+                  <div className="bg-white rounded-2xl p-6 text-center text-[15px] text-slate-500">
                     未有心水站
                     <br />
-                    <span className="text-[12px]">入去任何路線嘅站表，撳每站右邊嘅 ♡ 收藏你成日上車嗰個站</span>
+                    <span className="text-[13px]">入去任何路線嘅站表，撳每站右邊嘅 ♡ 收藏你成日上車嗰個站</span>
                   </div>
                 )}
-                {hearts.map((h) => (
+                {hearts.map((h, idx) => (
                   <div
                     key={h.id}
                     className="bg-white rounded-2xl border border-rose-100 shadow-sm px-4 py-3 flex items-center gap-3"
                   >
+                    {editOrder && (
+                      <div className="flex flex-col gap-1 shrink-0">
+                        <button onClick={() => moveHeart(h.id, "up")} disabled={idx === 0}
+                          className="p-1.5 rounded-lg bg-slate-100 disabled:opacity-30" aria-label="上移">
+                          <span className="text-[15px]">▲</span>
+                        </button>
+                        <button onClick={() => moveHeart(h.id, "down")} disabled={idx === hearts.length - 1}
+                          className="p-1.5 rounded-lg bg-slate-100 disabled:opacity-30" aria-label="下移">
+                          <span className="text-[15px]">▼</span>
+                        </button>
+                      </div>
+                    )}
                     <button
-                      onClick={() => handleTapHeart(h)}
+                      onClick={() => !editOrder && handleTapHeart(h)}
                       className="flex-1 min-w-0 text-left flex items-center gap-2.5"
                     >
                       <Heart className="w-5 h-5 text-rose-500 fill-rose-500 shrink-0" />
                       <div className="min-w-0">
-                        <div className="font-bold text-slate-900 text-[15px]">
+                        <div className="font-bold text-slate-900 text-[17px]">
                           {h.route}
-                          <span className="ml-2 text-[12px] font-medium text-slate-500">
+                          <span className="ml-2 text-[13px] font-medium text-slate-500">
                             第 {h.stopSeq} 站 · {h.stopNameTc || h.stopNameEn}
                           </span>
                         </div>
-                        <div className="text-[13px] text-slate-500 truncate">
+                        <div className="text-[14px] text-slate-500 truncate">
                           往 {h.destTc || h.destEn}
                           {h.directionLabel && ` · ${h.directionLabel}`}
                         </div>
@@ -947,10 +966,10 @@ export default function LiteApp() {
             {favTab === "routes" && (
               <div className="space-y-2">
                 {favRoutes.length === 0 && (
-                  <div className="bg-white rounded-2xl p-6 text-center text-[14px] text-slate-500">
+                  <div className="bg-white rounded-2xl p-6 text-center text-[15px] text-slate-500">
                     未收藏任何路線
                     <br />
-                    <span className="text-[12px]">去「路線」搜尋，撳星號收藏</span>
+                    <span className="text-[13px]">去「路線」搜尋，撳星號收藏</span>
                   </div>
                 )}
                 {favRoutes.map((fr) => (
@@ -964,15 +983,15 @@ export default function LiteApp() {
                     >
                       <OperatorBadge operator={fr.operator} />
                       <div className="min-w-0">
-                        <div className="font-bold text-slate-900 text-[15px]">
+                        <div className="font-bold text-slate-900 text-[17px]">
                           {fr.route}
                           {fr.directionLabel && (
-                            <span className="ml-2 text-[12px] font-medium text-slate-500">
+                            <span className="ml-2 text-[13px] font-medium text-slate-500">
                               {fr.directionLabel}
                             </span>
                           )}
                         </div>
-                        <div className="text-[13px] text-slate-500 truncate">
+                        <div className="text-[14px] text-slate-500 truncate">
                           {fr.originTc} → {fr.destTc}
                         </div>
                       </div>
@@ -992,7 +1011,7 @@ export default function LiteApp() {
             {favTab === "stops" && (
               <div className="space-y-2">
                 {favorites.length === 0 && (
-                  <div className="bg-white rounded-2xl p-6 text-center text-[14px] text-slate-500">
+                  <div className="bg-white rounded-2xl p-6 text-center text-[15px] text-slate-500">
                     未收藏任何車站
                   </div>
                 )}
@@ -1025,10 +1044,10 @@ export default function LiteApp() {
 
       {/* footer: link to map version */}
       <footer className="shrink-0 bg-white border-t border-slate-200 px-4 py-2 flex items-center justify-between">
-        <span className="text-[11px] text-slate-400">HK Bus ETA · 極速版 v2.0-lite</span>
+        <span className="text-[12px] text-slate-400">HK Bus ETA · 極速版 v2.0-lite</span>
         <a
           href="/hk-bus-eta/map/"
-          className="text-[12px] text-sky-600 font-medium"
+          className="text-[13px] text-sky-600 font-medium"
         >
           🗺️ 切換去地圖版
         </a>

@@ -86,5 +86,18 @@ export function useFavoriteHearts() {
     [hearts, persist]
   );
 
-  return { hearts, loaded, isHeart, toggleHeart, removeHeart };
+  const moveHeart = useCallback(
+    (id: string, direction: "up" | "down") => {
+      const idx = hearts.findIndex((h) => h.id === id);
+      if (idx === -1) return;
+      const newIdx = direction === "up" ? idx - 1 : idx + 1;
+      if (newIdx < 0 || newIdx >= hearts.length) return;
+      const next = [...hearts];
+      [next[idx], next[newIdx]] = [next[newIdx], next[idx]];
+      persist(next);
+    },
+    [hearts, persist]
+  );
+
+  return { hearts, loaded, isHeart, toggleHeart, removeHeart, moveHeart };
 }

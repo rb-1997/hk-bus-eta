@@ -82,24 +82,81 @@ export function NearbyTransportCard({
         const { getAllETAsForStop } = await import("@/utils/static-api");
         return getAllETAsForStop(item.busStop);
       } else if (item.kind === "mtr" && item.mtrt) {
-        return getETAs({
-          operator: "MTRT",
-          mtrt: {
-            line: item.mtrt.line,
-            sta: item.mtrt.sta,
-            lineTc: item.mtrt.lineTc,
-            lineEn: item.mtrt.lineEn,
-          },
-        });
+        // Direct fetch for MTR (bypass getETAs)
+        try {
+          const res = await fetch(
+            `https://rt.data.gov.hk/v1/transport/mtr/getSchedule.php?line=${item.mtrt.line}&sta=${item.mtrt.sta}&lang=TC`
+          ).then((r) => r.json());
+          if (res.status === 1 && res.data) {
+            const key = `${item.mtrt.line}-${item.mtrt.sta}`;
+            const stationData = res.data[key];
+            if (stationData) {
+              const trains = [];
+              for (const dir of ["UP", "DOWN"]) {
+                const list = stationData[dir] || [];
+                for (const t of list.slice(0, 4)) {
+                  if (t.valid !== "Y") continue;
+                  const curr = new Date(stationData.curr_time.replace(" ", "T"));
+                  const arr = new Date(t.time.replace(" ", "T"));
+                  const mins = Math.max(0, Math.round((arr.getTime() - curr.getTime()) / 60000));
+                  trains.push({
+                    id: `mtrt-${item.mtrt.line}-${item.mtrt.sta}-${dir}-${t.seq}`,
+                    operator: "MTRT" as const,
+                    route: item.mtrt.lineTc,
+                    destEn: t.dest,
+                    destTc: t.dest,
+                    eta: t.time,
+                    etaMinutes: mins,
+                    remarkEn: `Plat ${t.plat}`,
+                    remarkTc: `${t.plat}號月台`,
+                    sequence: trains.length + 1,
+                    isRealtime: true,
+                  });
+                }
+              }
+              return trains;
+            }
+          }
+        } catch (e) {
+          console.error("MTR fetch failed:", e);
+        }
+        return [];
       } else if (item.kind === "lrt" && item.lrt) {
-        return getETAs({
-          operator: "LRT",
-          lrt: {
-            stationId: item.lrt.stationId,
-            tc: item.lrt.tc,
-            en: item.lrt.en,
-          },
-        });
+        // Direct fetch for LRT (bypass getETAs to avoid issues)
+        try {
+          const res = await fetch(
+            `https://rt.data.gov.hk/v1/transport/mtr/lrt/getSchedule?station_id=${item.lrt.stationId}`
+          ).then((r) => r.json());
+          if (res.status === 1 && res.platform_list) {
+            const trains = [];
+            for (const plat of res.platform_list) {
+              for (const route of plat.route_list || []) {
+                const timeStr = route.time_ch || route.time_en || "-";
+                let mins = null;
+                const m = timeStr.match(/(\d+)/);
+                if (m) mins = parseInt(m[1], 10);
+                if (timeStr.includes("即將") || timeStr.toLowerCase().includes("arriving")) mins = 0;
+                trains.push({
+                  id: `lrt-${item.lrt.stationId}-${plat.platform_id}-${route.route_no}`,
+                  operator: "LRT" as const,
+                  route: `${route.route_no}號`,
+                  destEn: route.dest_en || "",
+                  destTc: route.dest_ch || "",
+                  eta: null,
+                  etaMinutes: mins,
+                  remarkEn: route.time_en || undefined,
+                  remarkTc: route.time_ch || undefined,
+                  sequence: trains.length + 1,
+                  isRealtime: true,
+                });
+              }
+            }
+            return trains;
+          }
+        } catch (e) {
+          console.error("LRT fetch failed:", e);
+        }
+        return [];
       }
       return [];
     },

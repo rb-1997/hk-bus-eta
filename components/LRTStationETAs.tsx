@@ -10,7 +10,17 @@ import { clsx } from "clsx";
  * Shows next trains for a Light Rail stop.
  */
 export function LRTStationETAs({ route }: { route: BusRoute }) {
-  const lrt = route.lrt;
+  // Primary: route.lrt; Fallback: parse from route.id (LRT-{stationId})
+  let lrt = route.lrt;
+  if (!lrt && route.id.startsWith("LRT-")) {
+    const stationId = route.id.replace("LRT-", "");
+    // Try to get name from route fields
+    lrt = {
+      stationId,
+      tc: route.originTc || route.route.replace("站", ""),
+      en: route.originEn || "",
+    };
+  }
   const { data: etas, isLoading } = useSWR(
     lrt ? ["lrt-etas", lrt.stationId] : null,
     () =>

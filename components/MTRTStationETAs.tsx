@@ -43,7 +43,21 @@ function MTRTDest({ code }: { code: string }) {
  * Uses the MTR proxy (official API has no CORS).
  */
 export function MTRTStationETAs({ route }: { route: BusRoute }) {
-  const mtrt = route.mtrt;
+  // Primary: route.mtrt; Fallback: parse from route.id (MTRT-{line}-{sta})
+  let mtrt = route.mtrt;
+  if (!mtrt && route.id.startsWith("MTRT-")) {
+    const parts = route.id.split("-");
+    if (parts.length >= 3) {
+      mtrt = {
+        line: parts[1],
+        sta: parts[2],
+        lineTc: route.destTc || parts[1],
+        lineEn: route.destEn || parts[1],
+        staTc: "",
+        staEn: "",
+      };
+    }
+  }
   const { data: etas, isLoading } = useSWR(
     mtrt ? ["mtrt-etas", mtrt.line, mtrt.sta] : null,
     () =>

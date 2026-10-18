@@ -679,8 +679,6 @@ export async function getAllETAsForStop(
 ): Promise<ETA[]> {
   const allEtas: ETA[] = [];
   const promises: Promise<ETA[]>[] = [];
-  // Track GMB routes queried, for placeholder entries when no live ETA
-  const gmbQueried: { code: string; dest_tc: string; dest_en: string }[] = [];
 
   // 1. Primary operator ETAs (existing logic)
   const kmbOrig = stop.originalIds.find((o) => o.operator === "KMB");
@@ -727,10 +725,8 @@ export async function getAllETAsForStop(
       }
       // GMB linked stops (up to 4 routes per stop to cover multi-route stops
       // like 43C which may not be first in the list; proxy handles the load)
-      // Track queried routes so we can show placeholders for those with no live ETA
       for (const g of (link.gmb || []).slice(0, 1)) {
         for (const rd of (g.routes_detail || []).slice(0, 4)) {
-          gmbQueried.push({ code: rd.code, dest_tc: rd.dest_tc, dest_en: rd.dest_en });
           promises.push(
             getETAs({
               operator: "GMB",
@@ -766,29 +762,6 @@ export async function getAllETAsForStop(
   }
   for (const r of results) {
     if (r.status === "fulfilled") allEtas.push(...r.value);
-  }
-
-  // Add placeholders for GMB routes with no live ETA (e.g. out of service hours)
-  // so users can still see the route serves this stop
-  const hasGmbEta = new Set(
-    allEtas.filter((e) => e.operator === "GMB").map((e) => `${e.route}|${e.destTc}`)
-  );
-  for (const q of gmbQueried) {
-    if (!hasGmbEta.has(`${q.code}|${q.dest_tc}`)) {
-      allEtas.push({
-        id: `gmb-none-${q.code}-${q.dest_tc}`,
-        operator: "GMB",
-        route: q.code,
-        destTc: q.dest_tc,
-        destEn: q.dest_en,
-        eta: null,
-        etaMinutes: null,
-        remarkTc: "暫無班次",
-        remarkEn: "No service",
-        sequence: 999,
-        isRealtime: false,
-      });
-    }
   }
 
   // Sort and dedupe

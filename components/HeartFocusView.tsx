@@ -42,7 +42,20 @@ export function HeartFocusView({
       );
       const stop = stops[heart.stopSeq - 1];
       if (!stop) return [];
-      // stop.stop is the stop ID
+      // For GMB, need gmb metadata
+      if (heart.operator === "GMB" && heart.gmb) {
+        return getETAs({
+          operator: "GMB",
+          gmb: {
+            route_id: heart.gmb.route_id,
+            route_seq: heart.gmb.route_seq,
+            stop_seq: heart.stopSeq,
+            code: heart.route,
+            dest_tc: heart.destTc,
+            dest_en: heart.destEn,
+          },
+        } as any);
+      }
       return getETAs({
         operator: heart.operator as any,
         stopId: stop.stop,

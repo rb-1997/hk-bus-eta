@@ -40,6 +40,20 @@ export function HeartListItem({
       );
       const stop = stops[heart.stopSeq - 1];
       if (!stop) return [];
+      // For GMB, need to pass gmb metadata with route_id/route_seq/stop_seq
+      if (heart.operator === "GMB" && heart.gmb) {
+        return getETAs({
+          operator: "GMB",
+          gmb: {
+            route_id: heart.gmb.route_id,
+            route_seq: heart.gmb.route_seq,
+            stop_seq: heart.stopSeq,
+            code: heart.route,
+            dest_tc: heart.destTc,
+            dest_en: heart.destEn,
+          },
+        } as any);
+      }
       return getETAs({
         operator: heart.operator as any,
         stopId: stop.stop,

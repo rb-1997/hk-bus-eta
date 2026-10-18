@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import useSWR from "swr";
 import type { FavoriteRouteStop } from "@/types/bus";
 import { clsx } from "clsx";
@@ -108,7 +109,7 @@ export function HeartListItem({
           {isLoading ? (
             <div className="text-[14px] text-slate-400">載入班次中…</div>
           ) : !etas || etas.length === 0 ? (
-            <div className="text-[14px] text-slate-400">暫無班次</div>
+            <TimetableNote heart={heart} />
           ) : (
             <div className="flex items-center gap-3 flex-wrap">
               {etas.slice(0, 3).map((e, i) => {
@@ -138,6 +139,42 @@ export function HeartListItem({
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+// Shows timetable info when no real-time ETA (e.g. night)
+function TimetableNote({ heart }: { heart: FavoriteRouteStop }) {
+  const [timetable, setTimetable] = React.useState<any>(null);
+  const [loaded, setLoaded] = React.useState(false);
+
+  React.useEffect(() => {
+    fetch("timetables.json")
+      .then((r) => r.json())
+      .then((data) => {
+        // Try keys: {operator}-{route}, LRT-{route}, etc.
+        const keys = [
+          `${heart.operator}-${heart.route}`,
+          `LRT-${heart.route}`,
+          heart.operator === "LRT" ? `LRT-505` : null,
+        ].filter(Boolean);
+        for (const k of keys) {
+          if (data[k as string]) {
+            setTimetable(data[k as string]);
+            break;
+          }
+        }
+        setLoaded(true);
+      })
+      .catch(() => setLoaded(true));
+  }, [heart]);
+
+  if (!loaded) return <div className="text-[14px] text-slate-400">暫無班次</div>;
+  if (!timetable) return <div className="text-[14px] text-slate-400">暫無班次</div>;
+  return (
+    <div className="text-[13px] text-slate-500">
+      暫無班次 · 首班車 {timetable.first}，尾班車 {timetable.last}
+      {timetable.note && <span className="block text-[12px] text-slate-400">{timetable.note}</span>}
     </div>
   );
 }

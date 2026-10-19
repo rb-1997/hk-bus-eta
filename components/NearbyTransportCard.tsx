@@ -40,6 +40,13 @@ function KindBadge({ kind }: { kind: string }) {
       </span>
     );
   }
+  if (kind === "gmb") {
+    return (
+      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-green-600 text-white shrink-0">
+        小巴
+      </span>
+    );
+  }
   return (
     <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-500 text-white shrink-0">
       巴士站
@@ -72,9 +79,11 @@ export function NearbyTransportCard({
         ? ["nearby-mtr", item.mtrt.line, item.mtrt.sta]
         : item.kind === "lrt" && item.lrt
           ? ["nearby-lrt", item.lrt.stationId]
+          : item.kind === "gmb" && item.gmb
+          ? ["nearby-gmb", item.gmb.route_id, item.gmb.route_seq, item.gmb.stop_seq]
           : null;
 
-  const { data: etas, isLoading } = useSWR(
+  const { data: etas, isLoading } = useSWR<any[]>(
     swrKey,
     async () => {
       if (item.kind === "bus" && item.busStop) {
@@ -157,6 +166,30 @@ export function NearbyTransportCard({
           console.error("LRT fetch failed:", e);
         }
         return [];
+      } else if (item.kind === "gmb" && item.gmb) {
+        // Direct GMB fetch via proxy
+        try {
+          const res = await fetch(
+            `https://hengfuk-gmb-proxy-rb-1997s-projects.vercel.app/api/gmb-proxy?path=eta/route-stop/${item.gmb.route_id}/${item.gmb.route_seq}/${item.gmb.stop_seq}`
+          ).then((r) => r.json());
+          const list = res?.data?.eta || [];
+          return list.map((e: any, idx: number) => ({
+            id: `gmb-${item.gmb!.route_id}-${item.gmb!.route_seq}-${e.eta_seq}`,
+            operator: "GMB" as const,
+            route: item.gmb!.code,
+            destEn: item.gmb!.dest_en,
+            destTc: item.gmb!.dest_tc,
+            eta: e.timestamp,
+            etaMinutes: e.diff,
+            remarkEn: e.remarks_en,
+            remarkTc: e.remarks_tc,
+            sequence: idx + 1,
+            isRealtime: e.remarks_tc !== "未開出",
+          }));
+        } catch (e) {
+          console.error("GMB fetch failed:", e);
+        }
+        return [];
       }
       return [];
     },
@@ -213,7 +246,7 @@ export function NearbyTransportCard({
               <button
                 key={i}
                 onClick={() => {
-                  // For bus: tap ETA -> go to route's full stop list
+                  // For bus/GMB: tap ETA -> go to route's full stop list
                   // For MTR/LRT: tap ETA -> go to station detail view
                   if ((item.kind === "mtr" || item.kind === "lrt") && onViewStation) {
                     onViewStation(item);

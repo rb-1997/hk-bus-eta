@@ -111,9 +111,27 @@ async function getRawRoutes() {
   return routesCache;
 }
 
+// Bundled list of CTB one-way routes (from full API audit 2026-10-19):
+// most are morning-peak / race-day / cemetery specials that genuinely run one way.
+let ctbOnewayCache: { outbound_only: string[]; inbound_only: string[] } | null = null;
+async function getCtbOneway() {
+  if (ctbOnewayCache) return ctbOnewayCache;
+  try {
+    const j = await plainFetch("ctb/oneway.json");
+    ctbOnewayCache = {
+      outbound_only: j.outbound_only || [],
+      inbound_only: j.inbound_only || [],
+    };
+  } catch {
+    ctbOnewayCache = { outbound_only: [], inbound_only: [] };
+  }
+  return ctbOnewayCache;
+}
+
 export async function searchRoutes(query: string): Promise<BusRoute[]> {
   const q = query.trim().toUpperCase();
   const { kmb: kmbRaw, ctb: ctbRaw } = await getRawRoutes();
+  const ctbOneway = await getCtbOneway();
   const routes: BusRoute[] = [];
 
   for (const r of kmbRaw) {
@@ -152,16 +170,36 @@ export async function searchRoutes(query: string): Promise<BusRoute[]> {
     ) {
       continue;
     }
-    routes.push({
-      id: `CTB-${r.route}`,
-      operator: "CTB",
-      route: r.route,
-      originEn: r.orig_en,
-      originTc: r.orig_tc,
-      destEn: r.dest_en,
-      destTc: r.dest_tc,
-      directionLabel: "Both directions",
-    });
+    // CTB: two cards per route (outbound + inbound), like KMB's I/O cards.
+    // One-way special routes get a single card for their valid direction.
+    const isObOnly = ctbOneway.outbound_only.includes(r.route);
+    const isIbOnly = ctbOneway.inbound_only.includes(r.route);
+    if (!isIbOnly) {
+      routes.push({
+        id: `CTB-${r.route}-outbound`,
+        operator: "CTB",
+        route: r.route,
+        bound: "outbound",
+        originEn: r.orig_en,
+        originTc: r.orig_tc,
+        destEn: r.dest_en,
+        destTc: r.dest_tc,
+        directionLabel: `往 ${r.dest_tc}`,
+      });
+    }
+    if (!isObOnly) {
+      routes.push({
+        id: `CTB-${r.route}-inbound`,
+        operator: "CTB",
+        route: r.route,
+        bound: "inbound",
+        originEn: r.dest_en,
+        originTc: r.dest_tc,
+        destEn: r.orig_en,
+        destTc: r.orig_tc,
+        directionLabel: `往 ${r.orig_tc}`,
+      });
+    }
   }
 
   routes.sort((a, b) => {

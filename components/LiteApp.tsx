@@ -998,17 +998,46 @@ export default function LiteApp() {
                     )}
                   </div>
                   <button
-                    onClick={() =>
-                      toggleFavRoute(
+                    onClick={() => {
+                      const favId =
                         selectedRoute.operator === "CTB"
-                          ? { ...selectedRoute, bound: ctbBound }
-                          : selectedRoute
-                      )
-                    }
+                          ? `CTB-${selectedRoute.route}-${ctbBound}`
+                          : selectedRoute.id;
+                      const isFav = isFavRoute(favId);
+                      if (isFav) {
+                        removeFavRoute(favId);
+                      } else {
+                        toggleFavRoute(
+                          selectedRoute.operator === "CTB"
+                            ? {
+                                ...selectedRoute,
+                                id: favId,
+                                bound: ctbBound,
+                                // Sync origin/dest labels to the toggled direction
+                                ...(ctbBound === "inbound"
+                                  ? {
+                                      originTc: selectedRoute.destTc,
+                                      originEn: selectedRoute.destEn,
+                                      destTc: selectedRoute.originTc,
+                                      destEn: selectedRoute.originEn,
+                                      directionLabel: `往 ${selectedRoute.originTc}`,
+                                    }
+                                  : {
+                                      directionLabel: `往 ${selectedRoute.destTc}`,
+                                    }),
+                              }
+                            : selectedRoute
+                        );
+                      }
+                    }}
                     className="p-2 shrink-0"
                     aria-label="收藏路線"
                   >
-                    {isFavRoute(selectedRoute.id) ? (
+                    {isFavRoute(
+                      selectedRoute.operator === "CTB"
+                        ? `CTB-${selectedRoute.route}-${ctbBound}`
+                        : selectedRoute.id
+                    ) ? (
                       <Star className="w-6 h-6 text-amber-400 fill-amber-400" />
                     ) : (
                       <StarOff className="w-6 h-6 text-slate-300" />

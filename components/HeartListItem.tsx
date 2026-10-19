@@ -32,14 +32,7 @@ export function HeartListItem({
     ["heart-list-eta", heart.id],
     async () => {
       const { getRouteStops, getETAs } = await import("@/utils/static-api");
-      const stops = await getRouteStops(
-        heart.route,
-        heart.operator as any,
-        heart.bound || "O",
-        heart.gmb
-      );
-      const stop = stops[heart.stopSeq - 1];
-      if (!stop) return [];
+      // For LRT/MTRT, skip getRouteStops (it doesn't support these operators) - fetch directly
       // For LRT, fetch directly
       // Fallback: if no lrt field (old heart), try to lookup stationId by name
       let lrtSid = heart.lrt?.stationId;
@@ -160,6 +153,15 @@ export function HeartListItem({
           },
         } as any);
       }
+      // For buses (KMB/CTB/MTR Bus): get stop via getRouteStops
+      const stops = await getRouteStops(
+        heart.route,
+        heart.operator as any,
+        heart.bound || "O",
+        heart.gmb
+      );
+      const stop = stops[heart.stopSeq - 1];
+      if (!stop) return [];
       return getETAs({
         operator: heart.operator as any,
         stopId: stop.stop,

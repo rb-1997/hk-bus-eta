@@ -1,7 +1,6 @@
 "use client";
 
 import useSWR from "swr";
-import { getETAs } from "@/utils/static-api";
 import type { BusRoute, ETA } from "@/types/bus";
 import { clsx } from "clsx";
 import { useState, useEffect } from "react";
@@ -60,19 +59,55 @@ export function MTRTStationETAs({ route }: { route: BusRoute }) {
     }
   }
   const { data: etas, isLoading } = useSWR(
-    mtrt ? ["mtrt-etas", mtrt.line, mtrt.sta] : null,
-    () =>
-      getETAs({
-        operator: "MTRT",
-        mtrt: {
-          line: mtrt!.line,
-          sta: mtrt!.sta!,
-          lineTc: mtrt!.lineTc,
-          lineEn: mtrt!.lineEn,
-        },
-      }),
+    mtrt ? ["mtrt-etas-direct", mtrt.line, mtrt.sta] : null,
+    async () => {
+      try {
+        const res = await fetch(
+          `https://rt.data.gov.hk/v1/transport/mtr/getSchedule.php?line=${mtrt!.line}&sta=${mtrt!.sta}&lang=TC`
+        ).then((r) => r.json());
+        const trains: any[] = [];
+        const key = `${mtrt!.line}-${mtrt!.sta}`;
+        const data = res.data?.[key];
+        if (data) {
+          for (const dir of ["UP", "DOWN"]) {
+            const list = data[dir] || [];
+            for (const t of list) {
+              // t.time is like "12:07" or "4 分鐘", t.dest is destination
+              let mins: number | null = null;
+              const timeStr = t.time || "";
+              const m = timeStr.match(/(\d+)\s*分/);
+              if (m) mins = parseInt(m[1], 10);
+              else if (timeStr.includes(":")) {
+                // "12:07" format - calculate diff from now
+                const [hh, mm] = timeStr.split(":").map(Number);
+                const now = new Date();
+                const arr = new Date();
+                arr.setHours(hh, mm, 0, 0);
+                mins = Math.round((arr.getTime() - now.getTime()) / 60000);
+                if (mins < 0) mins = 0;
+              }
+              trains.push({
+                id: `mtrt-${mtrt!.sta}-${dir}-${t.seq}`,
+                operator: "MTRT" as const,
+                route: mtrt!.lineTc,
+                destTc: t.dest || "",
+                destEn: t.dest || "",
+                etaMinutes: mins,
+                remarkTc: timeStr,
+                sequence: trains.length + 1,
+                isRealtime: true,
+              });
+            }
+          }
+        }
+        return trains;
+      } catch (e) {
+        console.error("MTRTStationETAs fetch failed:", e);
+        return [];
+      }
+    },
     {
-      refreshInterval: 30000, // refresh every 30s
+      refreshInterval: 30000,
       revalidateOnFocus: false,
       dedupingInterval: 10000,
     }

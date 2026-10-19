@@ -515,8 +515,8 @@ export default function LiteApp() {
     } catch { return 1; }
   });
   const cycleFontScale = () => {
-    // Obvious jumps: 100% -> 150% -> 200% -> back
-    const next = fontScale >= 2 ? 1 : fontScale >= 1.5 ? 2 : 1.5;
+    // Two levels only: 100% <-> 150%
+    const next = fontScale >= 1.5 ? 1 : 1.5;
     setFontScale(next);
     try { localStorage.setItem("hk-bus-eta-font-scale", String(next)); } catch {}
   };

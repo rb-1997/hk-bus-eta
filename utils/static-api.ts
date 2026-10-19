@@ -121,7 +121,9 @@ export async function searchRoutes(query: string): Promise<BusRoute[]> {
       q &&
       !r.route.toUpperCase().includes(q) &&
       !r.dest_en.toUpperCase().includes(q) &&
-      !r.orig_en.toUpperCase().includes(q)
+      !r.orig_en.toUpperCase().includes(q) &&
+      !(r.dest_tc || "").includes(query.trim()) &&
+      !(r.orig_tc || "").includes(query.trim())
     ) {
       continue;
     }
@@ -144,7 +146,9 @@ export async function searchRoutes(query: string): Promise<BusRoute[]> {
       q &&
       !r.route.toUpperCase().includes(q) &&
       !r.dest_en.toUpperCase().includes(q) &&
-      !r.orig_en.toUpperCase().includes(q)
+      !r.orig_en.toUpperCase().includes(q) &&
+      !(r.dest_tc || "").includes(query.trim()) &&
+      !(r.orig_tc || "").includes(query.trim())
     ) {
       continue;
     }
@@ -292,6 +296,36 @@ export async function searchRoutes(query: string): Promise<BusRoute[]> {
     }
   } catch {
     /* MTR train optional */
+  }
+
+  // Bus stop name search (KMB stops from bundled stops.json)
+  // e.g. search "友愛" finds stops with 友愛 in the name
+  try {
+    if (q) {
+      const stopsList = await plainFetch("stops.json").catch(() => []);
+      const qTrim = query.trim();
+      let count = 0;
+      for (const s of (stopsList as any[]) || []) {
+        if (count >= 10) break; // Limit to 10 stops
+        const nameTc = s.nameTc || s.name_tc || "";
+        const nameEn = s.nameEn || s.name_en || "";
+        if (nameTc.includes(qTrim) || nameEn.toUpperCase().includes(q)) {
+          routes.push({
+            id: `STOP-${s.id}`,
+            operator: "KMB",
+            route: nameTc,
+            originTc: nameTc,
+            originEn: nameEn,
+            destTc: "巴士站",
+            destEn: "Bus Stop",
+            directionLabel: `車站 · ${nameEn}`,
+          } as any);
+          count++;
+        }
+      }
+    }
+  } catch {
+    /* stop search optional */
   }
 
   // Light Rail (68 stops, bundled with coords from Wikipedia)

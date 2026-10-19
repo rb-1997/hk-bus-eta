@@ -450,10 +450,24 @@ function StopSearchResultETAs({ stop }: { stop: any }) {
     return <div className="bg-white rounded-2xl p-6 text-center text-[15px] text-slate-500">載入班次中…</div>;
   }
 
-  const list = (etas || []).slice(0, 20);
+  const list = etas || [];
   if (list.length === 0) {
     return <div className="bg-white rounded-2xl p-6 text-center text-[15px] text-slate-500">暫無班次資料</div>;
   }
+
+  // Group by route + destination, keep earliest first
+  const grouped = new Map<string, any[]>();
+  for (const e of list) {
+    const key = `${e.operator}-${e.route}-${e.destTc || e.destEn}`;
+    if (!grouped.has(key)) grouped.set(key, []);
+    grouped.get(key)!.push(e);
+  }
+  // Sort each group by etaMinutes (earliest first), then sort groups by earliest ETA
+  const groups = Array.from(grouped.values()).map(g => {
+    g.sort((a, b) => (a.etaMinutes ?? 9999) - (b.etaMinutes ?? 9999));
+    return g;
+  });
+  groups.sort((a, b) => (a[0].etaMinutes ?? 9999) - (b[0].etaMinutes ?? 9999));
 
   return (
     <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
@@ -462,15 +476,29 @@ function StopSearchResultETAs({ stop }: { stop: any }) {
         {stop.nameEn && <div className="text-[13px] text-slate-400">{stop.nameEn}</div>}
       </div>
       <div className="px-4 pb-2">
-        {list.map((e: any) => (
-          <div key={e.id} className="flex items-center gap-2 py-2 border-b border-slate-50 last:border-0">
-            <span className="font-bold text-sky-700 text-[15px]">{e.route}</span>
-            <span className="text-[13px] text-slate-500 flex-1 truncate">往 {e.destTc || e.destEn}</span>
-            <span className="text-[14px] font-semibold">
-              {e.etaMinutes !== null ? `${e.etaMinutes} 分鐘` : "—"}
-            </span>
-          </div>
-        ))}
+        {groups.map((g, gi) => {
+          const first = g[0];
+          return (
+            <div key={gi} className="py-2 border-b border-slate-50 last:border-0">
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-sky-700 text-[15px]">{first.route}</span>
+                <span className="text-[13px] text-slate-500 flex-1 truncate">往 {first.destTc || first.destEn}</span>
+                <span className="text-[14px] font-semibold">
+                  {first.etaMinutes !== null ? `${first.etaMinutes} 分鐘` : "—"}
+                </span>
+              </div>
+              {g.length > 1 && (
+                <div className="flex gap-2 mt-1 ml-1">
+                  {g.slice(1, 4).map((e: any) => (
+                    <span key={e.id} className="text-[12px] text-slate-400 bg-slate-50 px-2 py-0.5 rounded-full">
+                      {e.etaMinutes !== null ? `${e.etaMinutes}′` : "—"}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );

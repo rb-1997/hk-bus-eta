@@ -504,6 +504,53 @@ function StopSearchResultETAs({ stop }: { stop: any }) {
   );
 }
 
+// CTB direction toggle: only shows when BOTH directions have stops in the API.
+// One-way special routes (morning peaks, race-day specials, etc.) get no toggle.
+function CtbDirectionToggle({
+  route,
+  originTc,
+  destTc,
+  current,
+  onChange,
+}: {
+  route: string;
+  originTc: string;
+  destTc: string;
+  current: "outbound" | "inbound";
+  onChange: (d: "outbound" | "inbound") => void;
+}) {
+  const { stopSeqs: obStops } = useRouteStops(route, "CTB", "outbound");
+  const { stopSeqs: ibStops } = useRouteStops(route, "CTB", "inbound");
+  const hasOb = obStops.length > 0;
+  const hasIb = ibStops.length > 0;
+  // Don't show toggle for one-way routes
+  if (!hasOb || !hasIb) return null;
+  return (
+    <div className="flex gap-1.5 mt-2">
+      <button
+        onClick={() => onChange("outbound")}
+        className={`flex-1 rounded-full py-1.5 text-[13px] font-medium transition-colors ${
+          current === "outbound"
+            ? "bg-pink-500 text-white"
+            : "bg-slate-100 text-slate-600"
+        }`}
+      >
+        往 {destTc}
+      </button>
+      <button
+        onClick={() => onChange("inbound")}
+        className={`flex-1 rounded-full py-1.5 text-[13px] font-medium transition-colors ${
+          current === "inbound"
+            ? "bg-pink-500 text-white"
+            : "bg-slate-100 text-slate-600"
+        }`}
+      >
+        往 {originTc}
+      </button>
+    </div>
+  );
+}
+
 export default function LiteApp() {
   const [tab, setTab] = useState<Tab>("nearby");
   const [favTab, setFavTab] = useState<"hearts" | "routes" | "stops">("hearts");
@@ -941,28 +988,13 @@ export default function LiteApp() {
                         : `${selectedRoute.originTc} → ${selectedRoute.destTc}`}
                     </div>
                     {selectedRoute.operator === "CTB" && (
-                      <div className="flex gap-1.5 mt-2">
-                        <button
-                          onClick={() => setCtbBound("outbound")}
-                          className={`flex-1 rounded-full py-1.5 text-[13px] font-medium transition-colors ${
-                            ctbBound === "outbound"
-                              ? "bg-pink-500 text-white"
-                              : "bg-slate-100 text-slate-600"
-                          }`}
-                        >
-                          往 {selectedRoute.destTc}
-                        </button>
-                        <button
-                          onClick={() => setCtbBound("inbound")}
-                          className={`flex-1 rounded-full py-1.5 text-[13px] font-medium transition-colors ${
-                            ctbBound === "inbound"
-                              ? "bg-pink-500 text-white"
-                              : "bg-slate-100 text-slate-600"
-                          }`}
-                        >
-                          往 {selectedRoute.originTc}
-                        </button>
-                      </div>
+                      <CtbDirectionToggle
+                        route={selectedRoute.route}
+                        originTc={selectedRoute.originTc}
+                        destTc={selectedRoute.destTc}
+                        current={ctbBound}
+                        onChange={setCtbBound}
+                      />
                     )}
                   </div>
                   <button

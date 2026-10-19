@@ -590,7 +590,7 @@ export default function LiteApp() {
   return (
     <main className="h-[100dvh] w-full flex flex-col bg-slate-100 overflow-hidden">
       {/* header */}
-      <header className="shrink-0 bg-white border-b border-slate-200 px-4 pt-3 pb-2.5">
+      <header className="shrink-0 sticky top-0 z-20 bg-white border-b border-slate-200 px-4 pt-3 pb-2.5">
         <div className="flex items-center gap-2">
           <button
             onClick={requestLocation}

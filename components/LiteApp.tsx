@@ -35,7 +35,7 @@ import clsx from "clsx";
 
 // App name + version: bump patch version on every user-facing change
 export const APP_NAME = "CNE 交通資訊";
-export const APP_VERSION = "1.1.2";
+export const APP_VERSION = "1.1.3";
 
 export function OperatorBadge({ operator }: { operator: string }) {
   const src =
@@ -293,7 +293,7 @@ function LiteRouteStopRow({
         {seq}
       </div>
       <div className="min-w-0 flex-1">
-        <div className="text-[15px] font-medium text-slate-900 truncate">
+        <div className="text-[15px] font-medium text-slate-900 line-clamp-2 leading-snug">
           {displayTc || displayEn || `第 ${seq} 站`}
         </div>
         {displayTc && displayEn && displayTc !== displayEn && (

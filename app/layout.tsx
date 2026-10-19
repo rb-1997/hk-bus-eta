@@ -2,19 +2,19 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "HK Bus ETA",
-  description: "Real-time Hong Kong bus arrivals for KMB and Citybus",
-  applicationName: "HK Bus ETA",
+  title: "CNE 交通資訊",
+  description: "CNE 交通資訊 - 香港巴士小巴港鐵實時到站",
+  applicationName: "CNE 交通資訊",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "HK Bus ETA",
+    title: "CNE 交通資訊",
   },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0ea5e9",
+  themeColor: "#16a34a",
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,

@@ -33,6 +33,10 @@ import clsx from "clsx";
 
 /* ---------- shared bits ---------- */
 
+// App name + version: bump patch version on every user-facing change
+export const APP_NAME = "CNE 交通資訊";
+export const APP_VERSION = "1.1.1";
+
 export function OperatorBadge({ operator }: { operator: string }) {
   const src =
     operator === "KMB" || operator === "LWB"
@@ -760,6 +764,11 @@ export default function LiteApp() {
     <main className="h-[100dvh] w-full flex flex-col bg-[#FFFBF7] overflow-hidden" style={{ zoom: fontScale } as any}>
       {/* header - Japanese style */}
       <header className="shrink-0 sticky top-0 z-20 bg-[#FFFBF7] border-b border-[#F5E6D3] px-4 pt-3 pb-2.5">
+        {/* Title row */}
+        <div className="flex items-baseline justify-between mb-2">
+          <h1 className="text-[18px] font-bold text-green-800">{APP_NAME}</h1>
+          <span className="text-[12px] text-slate-400 tabular-nums">v{APP_VERSION}</span>
+        </div>
         {/* Row 1: Action buttons - always visible */}
         <div className="flex items-center gap-2.5">
           <button
@@ -1306,7 +1315,7 @@ export default function LiteApp() {
 
       {/* footer: link to map version */}
       <footer className="shrink-0 bg-white border-t border-slate-200 px-4 py-2 flex items-center justify-between">
-        <span className="text-[12px] text-slate-400">HK Bus ETA · 極速版</span>
+        <span className="text-[12px] text-slate-400">{APP_NAME} v{APP_VERSION}</span>
       </footer>
     </main>
   );

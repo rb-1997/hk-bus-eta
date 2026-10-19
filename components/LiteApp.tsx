@@ -34,27 +34,28 @@ import clsx from "clsx";
 /* ---------- shared bits ---------- */
 
 function OperatorBadge({ operator }: { operator: string }) {
-  if (operator === "KMB" || operator === "LWB") {
-    return (
-      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-500 text-white shrink-0">
-        九巴
-      </span>
-    );
-  }
-  if (operator === "GMB") {
-    return (
-      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-600 text-white shrink-0">
-        小巴
-      </span>
-    );
-  }
-  if (operator === "MTR") {
-    return (
-      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#c0392b] text-white shrink-0">
-        港鐵
-      </span>
-    );
-  }
+  const src =
+    operator === "KMB" || operator === "LWB"
+      ? "logos/kmb.svg"
+      : operator === "GMB"
+        ? "logos/gmb.svg"
+        : operator === "MTR"
+          ? "logos/mtr.svg"
+          : operator === "LRT"
+            ? "logos/lrt.svg"
+            : "logos/ctb.svg";
+  const alt =
+    operator === "KMB" || operator === "LWB"
+      ? "九巴"
+      : operator === "GMB"
+        ? "小巴"
+        : operator === "MTR"
+          ? "港鐵巴士"
+          : operator === "LRT"
+            ? "輕鐵"
+            : operator === "MTRT"
+              ? "港鐵"
+              : "城巴";
   if (operator === "MTRT") {
     return (
       <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#8e44ad] text-white shrink-0">
@@ -62,17 +63,13 @@ function OperatorBadge({ operator }: { operator: string }) {
       </span>
     );
   }
-  if (operator === "LRT") {
-    return (
-      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#e67e22] text-white shrink-0">
-        輕鐵
-      </span>
-    );
-  }
   return (
-    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-600 text-white shrink-0">
-      城巴
-    </span>
+    <img
+      src={src}
+      alt={alt}
+      className="h-[22px] w-auto rounded shrink-0"
+      loading="lazy"
+    />
   );
 }
 
@@ -131,7 +128,7 @@ function NearbyStopCard({
             <span className="font-semibold text-slate-900 text-[17px] truncate">
               {stop.nameTc || stop.nameEn}
             </span>
-            <span className="text-[12px] text-sky-600 font-medium tabular-nums shrink-0">
+            <span className="text-[12px] text-green-600 font-medium tabular-nums shrink-0">
               {distance < 1000 ? `${Math.round(distance)}m` : `${(distance / 1000).toFixed(1)}km`}
             </span>
           </div>
@@ -154,10 +151,10 @@ function NearbyStopCard({
             <button
               key={e.id}
               onClick={() => onTapRoute(e)}
-              className="w-full flex items-center gap-2 py-2 border-t border-slate-50 active:bg-sky-50 text-left"
+              className="w-full flex items-center gap-2 py-2 border-t border-slate-50 active:bg-green-50 text-left"
             >
               <OperatorBadge operator={e.operator} />
-              <span className="font-bold text-sky-700 text-[15px] tabular-nums underline decoration-sky-200 underline-offset-2">{e.route}</span>
+              <span className="font-bold text-green-700 text-[15px] tabular-nums underline decoration-green-200 underline-offset-2">{e.route}</span>
               <span className="text-[13px] text-slate-500 truncate flex-1">
                 往 {e.destTc || e.destEn}
               </span>
@@ -172,7 +169,7 @@ function NearbyStopCard({
       <div className="flex items-center justify-between px-4 py-2 bg-slate-50/60">
         <button
           onClick={() => refresh()}
-          className="flex items-center gap-1 text-[13px] text-slate-500 active:text-sky-600"
+          className="flex items-center gap-1 text-[13px] text-slate-500 active:text-green-600"
         >
           <RefreshCw className="w-3.5 h-3.5" />
           更新
@@ -309,7 +306,7 @@ function LiteRouteStopRow({
             className={clsx(
               "w-4.5 h-4.5",
               isHeart?.(route, seq)
-                ? "text-rose-500 fill-rose-500"
+                ? "text-green-600 fill-green-600"
                 : "text-slate-300"
             )}
           />
@@ -402,7 +399,7 @@ function LiteRouteStopsList({
             }}
             className={clsx(
               "rounded-xl transition-colors",
-              highlightSeq === s.seq && "bg-rose-50 ring-1 ring-rose-200"
+              highlightSeq === s.seq && "bg-green-50 ring-1 ring-green-200"
             )}
           >
             <LiteRouteStopRow
@@ -478,24 +475,48 @@ function StopSearchResultETAs({ stop }: { stop: any }) {
       <div className="px-4 pb-2">
         {groups.map((g, gi) => {
           const first = g[0];
+          const next3 = g.slice(0, 3);
           return (
-            <div key={gi} className="py-2 border-b border-slate-50 last:border-0">
-              <div className="flex items-center gap-2">
-                <span className="font-bold text-sky-700 text-[15px]">{first.route}</span>
-                <span className="text-[13px] text-slate-500 flex-1 truncate">往 {first.destTc || first.destEn}</span>
-                <span className="text-[14px] font-semibold">
-                  {first.etaMinutes !== null ? `${first.etaMinutes} 分鐘` : "—"}
-                </span>
+            <div key={gi} className="py-2.5 border-b border-green-50 last:border-0 flex items-center gap-3">
+              {/* LEFT: operator logo + route info */}
+              <div className="min-w-0 flex-1 flex items-center gap-2.5">
+                <OperatorBadge operator={first.operator} />
+                <div className="min-w-0">
+                  <div className="font-bold text-green-800 text-[16px] leading-tight">
+                    {first.route}
+                  </div>
+                  <div className="text-[13px] text-slate-500 truncate">
+                    往 {first.destTc || first.destEn}
+                  </div>
+                </div>
               </div>
-              {g.length > 1 && (
-                <div className="flex gap-2 mt-1 ml-1">
-                  {g.slice(1, 4).map((e: any) => (
-                    <span key={e.id} className="text-[12px] text-slate-400 bg-slate-50 px-2 py-0.5 rounded-full">
-                      {e.etaMinutes !== null ? `${e.etaMinutes}′` : "—"}
+              {/* RIGHT: at least 3 departure times, right-aligned */}
+              <div className="shrink-0 text-right">
+                <div className="flex flex-col items-end gap-0.5">
+                  {next3.map((e: any, i: number) => (
+                    <span
+                      key={e.id || i}
+                      className={clsx(
+                        "tabular-nums leading-tight",
+                        i === 0
+                          ? "text-[16px] font-bold"
+                          : "text-[13px] font-medium text-slate-500",
+                        etaColor(e),
+                        i === 0 && isUrgent(e) && "eta-urgent"
+                      )}
+                    >
+                      {e.etaMinutes !== null
+                        ? e.etaMinutes <= 0
+                          ? "即將到站"
+                          : `${e.etaMinutes} 分鐘`
+                        : e.remarkTc || e.remarkEn || "—"}
                     </span>
                   ))}
+                  {g.length === 0 && (
+                    <span className="text-[13px] text-slate-300">—</span>
+                  )}
                 </div>
-              )}
+              </div>
             </div>
           );
         })}
@@ -531,7 +552,7 @@ function CtbDirectionToggle({
         onClick={() => onChange("outbound")}
         className={`flex-1 rounded-full py-1.5 text-[13px] font-medium transition-colors ${
           current === "outbound"
-            ? "bg-pink-500 text-white"
+            ? "bg-green-600 text-white"
             : "bg-slate-100 text-slate-600"
         }`}
       >
@@ -541,7 +562,7 @@ function CtbDirectionToggle({
         onClick={() => onChange("inbound")}
         className={`flex-1 rounded-full py-1.5 text-[13px] font-medium transition-colors ${
           current === "inbound"
-            ? "bg-pink-500 text-white"
+            ? "bg-green-600 text-white"
             : "bg-slate-100 text-slate-600"
         }`}
       >
@@ -744,7 +765,7 @@ export default function LiteApp() {
           <button
             onClick={requestLocation}
             disabled={geoLoading}
-            className="flex flex-col items-center justify-center w-14 h-14 rounded-3xl bg-gradient-to-br from-[#FFB7C5] to-[#FF8FA3] text-white shadow-lg shadow-pink-200/50 active:scale-95 transition disabled:opacity-60 shrink-0"
+            className="flex flex-col items-center justify-center w-14 h-14 rounded-3xl bg-gradient-to-br from-green-400 to-green-600 text-white shadow-lg shadow-green-200/50 active:scale-95 transition disabled:opacity-60 shrink-0"
             aria-label="定位"
           >
             <LocateFixed className={clsx("w-5 h-5", geoLoading && "animate-pulse")} />
@@ -815,7 +836,7 @@ export default function LiteApp() {
                 inputRef.current?.blur();
               }
             }}
-            className="w-full h-12 pl-12 pr-11 rounded-full bg-white border-2 border-[#F5E6D3] text-[16px] text-[#4A3728] placeholder:text-[#C4A77D] placeholder:text-[14px] focus:outline-none focus:border-[#FFB7C5] focus:ring-4 focus:ring-pink-100/50 shadow-sm"
+            className="w-full h-12 pl-12 pr-11 rounded-full bg-white border-2 border-[#F5E6D3] text-[16px] text-[#4A3728] placeholder:text-[#C4A77D] placeholder:text-[14px] focus:outline-none focus:border-green-300 focus:ring-4 focus:ring-green-100/50 shadow-sm"
           />
           {routeQuery ? (
             <button
@@ -839,7 +860,7 @@ export default function LiteApp() {
                   setSelectedRoute(null);
                 }
               }}
-              className="absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-gradient-to-br from-[#FFB7C5] to-[#FF8FA3] flex items-center justify-center text-white shadow-md"
+              className="absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center text-white shadow-md"
               aria-label="搜尋"
             >
               <Search className="w-4 h-4" />
@@ -862,7 +883,7 @@ export default function LiteApp() {
               className={clsx(
                 "flex-1 py-2.5 text-[14px] font-medium rounded-full transition-all flex items-center justify-center gap-1.5",
                 tab === t.id
-                  ? "bg-gradient-to-br from-[#FFB7C5] to-[#FF8FA3] text-white shadow-md shadow-pink-200/50"
+                  ? "bg-gradient-to-br from-green-400 to-green-600 text-white shadow-md shadow-green-200/50"
                   : "text-[#8B6F47]"
               )}
             >
@@ -882,7 +903,7 @@ export default function LiteApp() {
               <div className="bg-white rounded-2xl border border-slate-100 shadow-sm px-4 py-3">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-[14px] font-medium text-slate-700">搜尋範圍</span>
-                  <span className="text-[14px] font-bold text-sky-600 tabular-nums">{searchRadius} 米</span>
+                  <span className="text-[14px] font-bold text-green-600 tabular-nums">{searchRadius} 米</span>
                 </div>
                 <input
                   type="range"
@@ -891,7 +912,7 @@ export default function LiteApp() {
                   step={100}
                   value={searchRadius}
                   onChange={(e) => setSearchRadius(Number(e.target.value))}
-                  className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-sky-600"
+                  className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-green-600"
                 />
                 <div className="flex justify-between text-[11px] text-slate-400 mt-1">
                   <span>200米</span>
@@ -901,8 +922,8 @@ export default function LiteApp() {
             )}
             {showLocatePrompt && (
               <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 text-center">
-                <div className="w-14 h-14 rounded-full bg-sky-100 flex items-center justify-center mx-auto mb-3">
-                  <Navigation className="w-7 h-7 text-sky-600" />
+                <div className="w-14 h-14 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-3">
+                  <Navigation className="w-7 h-7 text-green-600" />
                 </div>
                 <h2 className="font-semibold text-slate-900 text-[17px] mb-1">
                   撳一下，即刻睇附近有咩車
@@ -912,7 +933,7 @@ export default function LiteApp() {
                 </p>
                 <button
                   onClick={requestLocation}
-                  className="px-6 py-3 rounded-2xl bg-sky-500 text-white font-semibold text-[17px] shadow-md shadow-sky-500/25 active:scale-95 transition"
+                  className="px-6 py-3 rounded-2xl bg-green-600 text-white font-semibold text-[17px] shadow-md shadow-green-500/25 active:scale-95 transition"
                 >
                   📍 定位我嘅位置
                 </button>
@@ -1148,7 +1169,7 @@ export default function LiteApp() {
                   )}
                 >
                   {t === "hearts" ? (
-                    <><Heart className="w-3.5 h-3.5 text-rose-500 fill-rose-500" /> 心心 ({hearts.length})</>
+                    <><Heart className="w-3.5 h-3.5 text-green-600 fill-green-600" /> 心心 ({hearts.length})</>
                   ) : t === "routes" ? (
                     <>★ 路線 ({favRoutes.length})</>
                   ) : (
@@ -1162,8 +1183,8 @@ export default function LiteApp() {
                 <button
                   onClick={() => setEditOrder(!editOrder)}
                   className={editOrder
-                    ? "text-[14px] font-medium px-3 py-1.5 rounded-full bg-sky-600 text-white"
-                    : "text-[14px] font-medium px-3 py-1.5 rounded-full bg-white text-sky-600 border border-sky-200"}
+                    ? "text-[14px] font-medium px-3 py-1.5 rounded-full bg-green-600 text-white"
+                    : "text-[14px] font-medium px-3 py-1.5 rounded-full bg-white text-green-600 border border-green-200"}
                 >
                   {editOrder ? "✓ 完成排序" : "✎ 編輯次序"}
                 </button>
@@ -1250,7 +1271,7 @@ export default function LiteApp() {
                     </div>
                     <button
                       onClick={() => setTab("nearby")}
-                      className="mt-3 px-5 py-2 rounded-full bg-gradient-to-br from-[#FFB7C5] to-[#FF8FA3] text-white text-[14px] font-medium shadow-md"
+                      className="mt-3 px-5 py-2 rounded-full bg-gradient-to-br from-green-400 to-green-600 text-white text-[14px] font-medium shadow-md"
                     >
                       去附近睇下
                     </button>

@@ -6,12 +6,12 @@
 
 :root {
   --foreground: #0f172a;
-  --background: #f1f5f9;
+  --background: #f0fdf4;
   --card: #ffffff;
   --muted: #64748b;
-  --border: #e2e8f0;
-  --primary: #0ea5e9;
-  --primary-dark: #0284c7;
+  --border: #d1fae5;
+  --primary: #16a34a;
+  --primary-dark: #15803d;
 }
 
 html, body {

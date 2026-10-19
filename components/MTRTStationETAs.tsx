@@ -62,6 +62,8 @@ export function MTRTStationETAs({ route }: { route: BusRoute }) {
     mtrt ? ["mtrt-etas-direct", mtrt.line, mtrt.sta] : null,
     async () => {
       try {
+        // Ensure station code map is loaded for dest names
+        await getCodeMap();
         const res = await fetch(
           `https://rt.data.gov.hk/v1/transport/mtr/getSchedule.php?line=${mtrt!.line}&sta=${mtrt!.sta}&lang=TC`
         ).then((r) => r.json());
@@ -76,22 +78,39 @@ export function MTRTStationETAs({ route }: { route: BusRoute }) {
               let mins: number | null = null;
               const timeStr = t.time || "";
               const m = timeStr.match(/(\d+)\s*分/);
-              if (m) mins = parseInt(m[1], 10);
-              else if (timeStr.includes(":")) {
+              if (m) {
+                mins = parseInt(m[1], 10);
+              } else if (timeStr.includes("-") && timeStr.includes(":")) {
+                // "2026-10-19 12:18:07" format - parse as datetime
+                const arr = new Date(timeStr.replace(" ", "T"));
+                if (!isNaN(arr.getTime())) {
+                  const now = new Date();
+                  mins = Math.round((arr.getTime() - now.getTime()) / 60000);
+                  if (mins < 0) mins = 0;
+                }
+              } else if (timeStr.includes(":")) {
                 // "12:07" format - calculate diff from now
-                const [hh, mm] = timeStr.split(":").map(Number);
-                const now = new Date();
-                const arr = new Date();
-                arr.setHours(hh, mm, 0, 0);
-                mins = Math.round((arr.getTime() - now.getTime()) / 60000);
-                if (mins < 0) mins = 0;
+                const parts = timeStr.split(":");
+                const hh = parseInt(parts[parts.length - 2], 10);
+                const mm = parseInt(parts[parts.length - 1], 10);
+                if (!isNaN(hh) && !isNaN(mm)) {
+                  const now = new Date();
+                  const arr = new Date();
+                  arr.setHours(hh, mm, 0, 0);
+                  mins = Math.round((arr.getTime() - now.getTime()) / 60000);
+                  if (mins < 0) mins = 0;
+                }
               }
+              // Map dest station code to Chinese name
+              const destInfo = codeMap?.get(t.dest);
+              const destTc = destInfo?.tc || t.dest || "";
+              const destEn = destInfo?.en || t.dest || "";
               trains.push({
                 id: `mtrt-${mtrt!.sta}-${dir}-${t.seq}`,
                 operator: "MTRT" as const,
                 route: mtrt!.lineTc,
-                destTc: t.dest || "",
-                destEn: t.dest || "",
+                destTc,
+                destEn,
                 etaMinutes: mins,
                 remarkTc: timeStr,
                 sequence: trains.length + 1,

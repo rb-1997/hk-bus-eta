@@ -66,11 +66,15 @@ export function NearbyTransportCard({
   defaultExpanded,
   onTapRoute,
   onViewStation,
+  isFavorite,
+  toggleFavorite,
 }: {
   item: NearbyTransport;
   defaultExpanded: boolean;
   onTapRoute: (eta: ETA) => void;
   onViewStation?: (item: NearbyTransport) => void;
+  isFavorite?: (id: string) => boolean;
+  toggleFavorite?: (stop: any) => void;
 }) {
   const [expanded, setExpanded] = useState(defaultExpanded);
 
@@ -289,6 +293,35 @@ export function NearbyTransportCard({
           </div>
         )}
       </div>
+      {item.kind === "bus" && isFavorite && toggleFavorite && (
+        <div className="flex items-center justify-end px-4 py-2 bg-slate-50/60 border-t border-slate-100">
+          <button
+            onClick={() =>
+              toggleFavorite({
+                id: item.id,
+                nameTc: item.nameTc,
+                nameEn: item.nameEn,
+                lat: item.lat,
+                lng: item.lng,
+              })
+            }
+            className="flex items-center gap-1 text-[13px] text-slate-500 active:text-amber-500"
+            aria-label="收藏車站"
+          >
+            {isFavorite(item.id) ? (
+              <>
+                <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
+                已收藏
+              </>
+            ) : (
+              <>
+                <StarOff className="w-4 h-4" />
+                收藏車站
+              </>
+            )}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

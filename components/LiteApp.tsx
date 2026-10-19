@@ -765,6 +765,8 @@ export default function LiteApp() {
                 defaultExpanded={i === 0}
                 onTapRoute={handleTapEtaRoute}
                 onViewStation={handleViewStation}
+                isFavorite={isFavorite}
+                toggleFavorite={toggleFavorite}
               />
             ))}
           </>

@@ -600,6 +600,20 @@ export default function LiteApp() {
           >
             <LocateFixed className={clsx("w-5 h-5", geoLoading && "animate-pulse")} />
           </button>
+          {(heartFocus || selectedRoute || routeQuery) && (
+            <button
+              onClick={() => {
+                setHeartFocus(null);
+                setSelectedRoute(null);
+                setRouteQuery("");
+                setTab("nearby");
+              }}
+              className="flex items-center justify-center w-11 h-11 rounded-2xl bg-slate-100 text-slate-600 active:scale-95 transition shrink-0"
+              aria-label="主頁"
+            >
+              <span className="text-[20px]">🏠</span>
+            </button>
+          )}
           {(heartFocus || selectedRoute) && (
             <button
               onClick={() => {

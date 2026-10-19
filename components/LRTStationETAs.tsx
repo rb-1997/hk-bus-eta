@@ -133,7 +133,12 @@ export function LRTStationETAs({ route }: { route: BusRoute }) {
                     ? (e.remarkTc || e.remarkEn || "—")
                     : e.etaMinutes <= 0
                       ? "即將到站"
-                      : `${e.etaMinutes} 分鐘`}
+                      : (() => {
+                          const arrival = new Date(Date.now() + e.etaMinutes! * 60000);
+                          const hh = String(arrival.getHours()).padStart(2, "0");
+                          const mm = String(arrival.getMinutes()).padStart(2, "0");
+                          return `${e.etaMinutes} 分鐘 (${hh}:${mm})`;
+                        })()}
                 </span>
               </div>
             );

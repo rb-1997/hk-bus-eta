@@ -37,7 +37,8 @@ function haversine(lat1: number, lng1: number, lat2: number, lng2: number): numb
 export function useNearbyTransport(
   userLat: number,
   userLng: number,
-  busStops: BusStop[]
+  busStops: BusStop[],
+  maxDist: number = 800
 ): NearbyTransport[] {
   const [items, setItems] = useState<NearbyTransport[]>([]);
 
@@ -54,7 +55,7 @@ export function useNearbyTransport(
       for (const s of busStops) {
         if (s.lat == null || s.lng == null) continue;
         const dist = haversine(userLat, userLng, s.lat, s.lng);
-        if (dist <= 800) {
+        if (dist <= maxDist) {
           all.push({
             kind: "bus",
             id: s.id,
@@ -82,7 +83,7 @@ export function useNearbyTransport(
           for (const st of stations) {
             if (st.lat == null || st.lng == null) continue;
             const dist = haversine(userLat, userLng, st.lat, st.lng);
-            if (dist <= 800) {
+            if (dist <= maxDist) {
               all.push({
                 kind: "mtr",
                 id: `mtr-${lineCode}-${st.code}`,
@@ -110,7 +111,7 @@ export function useNearbyTransport(
         for (const s of Object.values(data.stops) as any[]) {
           if (s.lat == null || s.lng == null) continue;
           const dist = haversine(userLat, userLng, s.lat, s.lng);
-          if (dist <= 800) {
+          if (dist <= maxDist) {
             all.push({
               kind: "lrt",
               id: `lrt-${s.id}`,
@@ -132,7 +133,7 @@ export function useNearbyTransport(
         for (const s of gmbStops) {
           if (s.lat == null || s.lng == null) continue;
           const dist = haversine(userLat, userLng, s.lat, s.lng);
-          if (dist <= 800) {
+          if (dist <= maxDist) {
             for (const r of (s.routes || [])) {
               all.push({
                 kind: "gmb",

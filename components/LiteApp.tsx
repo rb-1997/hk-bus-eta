@@ -508,6 +508,18 @@ export default function LiteApp() {
   const [tab, setTab] = useState<Tab>("nearby");
   const [favTab, setFavTab] = useState<"hearts" | "routes" | "stops">("hearts");
   const [routeQuery, setRouteQuery] = useState("");
+  const [searchRadius, setSearchRadius] = useState(800); // meters
+  const [fontScale, setFontScale] = useState(() => {
+    try {
+      return Number(localStorage.getItem("hk-bus-eta-font-scale")) || 1;
+    } catch { return 1; }
+  });
+  const cycleFontScale = () => {
+    const next = fontScale >= 1.3 ? 1 : fontScale + 0.15;
+    const rounded = Math.round(next * 100) / 100;
+    setFontScale(rounded);
+    try { localStorage.setItem("hk-bus-eta-font-scale", String(rounded)); } catch {}
+  };
   const [selectedRoute, setSelectedRoute] = useState<BusRoute | null>(null);
   const [heartFocus, setHeartFocus] = useState<FavoriteRouteStop | null>(null);
   const [editOrder, setEditOrder] = useState(false);
@@ -545,7 +557,7 @@ export default function LiteApp() {
 
   // Nearby stops within 800m, top 8
   // Nearby: ALL transport within 800m (bus + MTR + Light Rail), no limit, sorted by distance
-  const nearby = useNearbyTransport(userLat, userLng, stops);
+  const nearby = useNearbyTransport(userLat, userLng, stops, searchRadius);
 
   const hasLocation = !!userLat && !!userLng;
   const showLocatePrompt = !hasLocation && !geoLoading;
@@ -664,7 +676,7 @@ export default function LiteApp() {
   const favCount = favorites.length + favRoutes.length + hearts.length;
 
   return (
-    <main className="h-[100dvh] w-full flex flex-col bg-slate-100 overflow-hidden">
+    <main className="h-[100dvh] w-full flex flex-col bg-slate-100 overflow-hidden" style={{ fontSize: `${fontScale * 100}%` }}>
       {/* header */}
       <header className="shrink-0 sticky top-0 z-20 bg-white border-b border-slate-200 px-4 pt-3 pb-2.5">
         <div className="flex items-center gap-2">
@@ -675,6 +687,14 @@ export default function LiteApp() {
             aria-label="定位"
           >
             <LocateFixed className={clsx("w-5 h-5", geoLoading && "animate-pulse")} />
+          </button>
+          <button
+            onClick={cycleFontScale}
+            className="flex items-center justify-center w-11 h-11 rounded-2xl bg-slate-100 text-slate-700 active:scale-95 transition shrink-0"
+            aria-label="字體大小"
+            title={`字體: ${Math.round(fontScale * 100)}%`}
+          >
+            <span className="text-[18px] font-bold">A{fontScale > 1 ? "+" : ""}</span>
           </button>
           {(heartFocus || selectedRoute || routeQuery) && (
             <button
@@ -792,6 +812,28 @@ export default function LiteApp() {
       <div className="flex-1 overflow-y-auto overscroll-contain px-3 py-3 space-y-3">
         {tab === "nearby" && (
           <>
+            {/* Distance slider */}
+            {!showLocatePrompt && (
+              <div className="bg-white rounded-2xl border border-slate-100 shadow-sm px-4 py-3">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[14px] font-medium text-slate-700">搜尋範圍</span>
+                  <span className="text-[14px] font-bold text-sky-600 tabular-nums">{searchRadius} 米</span>
+                </div>
+                <input
+                  type="range"
+                  min={200}
+                  max={2000}
+                  step={100}
+                  value={searchRadius}
+                  onChange={(e) => setSearchRadius(Number(e.target.value))}
+                  className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-sky-600"
+                />
+                <div className="flex justify-between text-[11px] text-slate-400 mt-1">
+                  <span>200米</span>
+                  <span>2000米</span>
+                </div>
+              </div>
+            )}
             {showLocatePrompt && (
               <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 text-center">
                 <div className="w-14 h-14 rounded-full bg-sky-100 flex items-center justify-center mx-auto mb-3">

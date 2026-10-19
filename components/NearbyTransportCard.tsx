@@ -200,6 +200,11 @@ export function NearbyTransportCard({
     }
   );
 
+  // Hide GMB cards with no ETAs (user doesn't want clutter)
+  if (item.kind === "gmb" && !isLoading && (!etas || etas.length === 0)) {
+    return null;
+  }
+
   const shown = expanded ? (etas || []) : (etas || []).slice(0, 4);
   const distText =
     item.dist < 1000 ? `${Math.round(item.dist)}m` : `${(item.dist / 1000).toFixed(1)}km`;

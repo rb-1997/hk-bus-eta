@@ -133,7 +133,7 @@ export function useNearbyTransport(
           if (s.lat == null || s.lng == null) continue;
           const dist = haversine(userLat, userLng, s.lat, s.lng);
           if (dist <= 800) {
-            for (const r of (s.routes || []).slice(0, 2)) {
+            for (const r of (s.routes || [])) {
               all.push({
                 kind: "gmb",
                 id: `gmb-${s.stop_id}-${r.route_id}-${r.route_seq}`,

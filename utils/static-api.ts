@@ -265,9 +265,13 @@ export async function searchRoutes(query: string): Promise<BusRoute[]> {
         if (lineCode === "" || !Array.isArray(stations)) continue;
         const ln = lineNames[lineCode] || { tc: lineCode, en: lineCode };
         for (const s of stations as any[]) {
+          // Handle "站" suffix: user may search "屯門站" but data has "屯門"
+          const qNoStation = query.trim().replace(/站$/, "");
           const staMatch =
             !q ||
             (s.tc || "").includes(query.trim()) ||
+            (s.tc || "").includes(qNoStation) ||
+            qNoStation === s.tc ||
             (s.en || "").toUpperCase().includes(q) ||
             ln.tc.includes(query.trim()) ||
             ln.en.toUpperCase().includes(q);
@@ -323,10 +327,13 @@ export async function searchRoutes(query: string): Promise<BusRoute[]> {
       }
       // Also search by stop name (existing)
       if (lrtCache?.stops) {
+        const qNoStationLrt = query.trim().replace(/站$/, "");
         for (const s of Object.values(lrtCache.stops) as any[]) {
           const match =
             !q ||
             (s.tc || "").includes(query.trim()) ||
+            (s.tc || "").includes(qNoStationLrt) ||
+            qNoStationLrt === s.tc ||
             (s.en || "").toUpperCase().includes(q);
           if (!match) continue;
           routes.push({

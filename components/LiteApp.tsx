@@ -524,6 +524,10 @@ export default function LiteApp() {
   const [heartFocus, setHeartFocus] = useState<FavoriteRouteStop | null>(null);
   const [editOrder, setEditOrder] = useState(false);
   const [highlightSeq, setHighlightSeq] = useState<number | null>(null);
+  // CTB direction toggle: CTB search returns one card per route ("Both directions"
+  // label), but the API has separate inbound/outbound stop lists. This state
+  // tracks which direction the detail view is showing.
+  const [ctbBound, setCtbBound] = useState<"outbound" | "inbound">("outbound");
   const inputRef = useRef<HTMLInputElement>(null);
   const { mutate } = useSWRConfig();
 
@@ -551,9 +555,18 @@ export default function LiteApp() {
   const { stopSeqs, isLoading: stopsListLoading } = useRouteStops(
     selectedRoute?.route || null,
     operatorForApi,
-    selectedRoute?.bound || "O",
+    selectedRoute?.operator === "CTB" ? ctbBound : selectedRoute?.bound || "O",
     selectedRoute?.gmb
   );
+
+  // Sync CTB direction toggle when a different route is selected:
+  // search results have no bound (default outbound); reopened favorites
+  // restore their saved bound.
+  useEffect(() => {
+    if (selectedRoute?.operator === "CTB") {
+      setCtbBound(selectedRoute.bound === "inbound" ? "inbound" : "outbound");
+    }
+  }, [selectedRoute?.id]);
 
   // Nearby stops within 800m, top 8
   // Nearby: ALL transport within 800m (bus + MTR + Light Rail), no limit, sorted by distance
@@ -923,11 +936,43 @@ export default function LiteApp() {
                       )}
                     </div>
                     <div className="text-[14px] text-slate-500 truncate mt-0.5">
-                      {selectedRoute.originTc} → {selectedRoute.destTc}
+                      {selectedRoute.operator === "CTB" && ctbBound === "inbound"
+                        ? `${selectedRoute.destTc} → ${selectedRoute.originTc}`
+                        : `${selectedRoute.originTc} → ${selectedRoute.destTc}`}
                     </div>
+                    {selectedRoute.operator === "CTB" && (
+                      <div className="flex gap-1.5 mt-2">
+                        <button
+                          onClick={() => setCtbBound("outbound")}
+                          className={`flex-1 rounded-full py-1.5 text-[13px] font-medium transition-colors ${
+                            ctbBound === "outbound"
+                              ? "bg-pink-500 text-white"
+                              : "bg-slate-100 text-slate-600"
+                          }`}
+                        >
+                          往 {selectedRoute.destTc}
+                        </button>
+                        <button
+                          onClick={() => setCtbBound("inbound")}
+                          className={`flex-1 rounded-full py-1.5 text-[13px] font-medium transition-colors ${
+                            ctbBound === "inbound"
+                              ? "bg-pink-500 text-white"
+                              : "bg-slate-100 text-slate-600"
+                          }`}
+                        >
+                          往 {selectedRoute.originTc}
+                        </button>
+                      </div>
+                    )}
                   </div>
                   <button
-                    onClick={() => toggleFavRoute(selectedRoute)}
+                    onClick={() =>
+                      toggleFavRoute(
+                        selectedRoute.operator === "CTB"
+                          ? { ...selectedRoute, bound: ctbBound }
+                          : selectedRoute
+                      )
+                    }
                     className="p-2 shrink-0"
                     aria-label="收藏路線"
                   >

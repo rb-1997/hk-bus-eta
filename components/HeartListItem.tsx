@@ -207,8 +207,8 @@ export function HeartListItem({
           <div className="flex items-center gap-2">
             <Heart className="w-5 h-5 text-green-600 fill-green-600 shrink-0" />
             <OperatorBadge operator={heart.operator} />
-            <span className="font-bold text-slate-900 text-[16px] truncate">{heart.route}</span>
-            <span className="text-[13px] font-medium text-slate-500 truncate">
+            <span className="font-bold text-slate-900 text-[16px] shrink-0">{heart.route}</span>
+            <span className="text-[13px] font-medium text-slate-500 truncate min-w-0">
               第 {heart.stopSeq} 站 · {heart.stopNameTc || heart.stopNameEn}
             </span>
           </div>

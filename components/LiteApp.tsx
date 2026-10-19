@@ -33,7 +33,7 @@ import clsx from "clsx";
 
 /* ---------- shared bits ---------- */
 
-function OperatorBadge({ operator }: { operator: string }) {
+export function OperatorBadge({ operator }: { operator: string }) {
   const src =
     operator === "KMB" || operator === "LWB"
       ? "logos/kmb.svg"

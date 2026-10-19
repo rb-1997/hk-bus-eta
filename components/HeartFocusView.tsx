@@ -5,24 +5,8 @@ import { getETAs } from "@/utils/static-api";
 import type { FavoriteRouteStop, BusRoute } from "@/types/bus";
 import { LRTStationETAs } from "./LRTStationETAs";
 import { MTRTStationETAs } from "./MTRTStationETAs";
+import { OperatorBadge } from "./LiteApp";
 import { clsx } from "clsx";
-
-function OperatorBadge({ operator }: { operator: string }) {
-  const config: Record<string, { bg: string; label: string }> = {
-    KMB: { bg: "bg-red-600", label: "九巴" },
-    CTB: { bg: "bg-blue-700", label: "城巴" },
-    GMB: { bg: "bg-green-600", label: "小巴" },
-    MTR: { bg: "bg-red-800", label: "港鐵" },
-    MTRT: { bg: "bg-purple-600", label: "鐵路" },
-    LRT: { bg: "bg-orange-500", label: "輕鐵" },
-  };
-  const c = config[operator] || { bg: "bg-slate-500", label: operator };
-  return (
-    <span className={clsx("text-white text-[13px] font-bold px-1.5 py-0.5 rounded", c.bg)}>
-      {c.label}
-    </span>
-  );
-}
 
 export function HeartFocusView({
   heart,

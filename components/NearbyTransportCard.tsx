@@ -7,6 +7,7 @@ import type { ETA, BusStop } from "@/types/bus";
 import type { NearbyTransport } from "@/hooks/useNearbyTransport";
 import { clsx } from "clsx";
 import { ChevronDown, Star, StarOff } from "lucide-react";
+import { OperatorBadge } from "./LiteApp";
 
 function etaText(e: ETA): string {
   if (e.etaMinutes === null) return e.remarkTc || e.remarkEn || "—";
@@ -228,7 +229,7 @@ export function NearbyTransportCard({
             <span className="font-semibold text-slate-900 text-[17px] truncate">
               {item.nameTc}
             </span>
-            <span className="text-[12px] text-sky-600 font-medium tabular-nums shrink-0">
+            <span className="text-[12px] text-green-600 font-medium tabular-nums shrink-0">
               {distText}
             </span>
           </div>
@@ -290,9 +291,10 @@ export function NearbyTransportCard({
                     onTapRoute(e);
                   }
                 }}
-                className="w-full flex items-center gap-2 py-1.5 text-left active:bg-slate-50 rounded-lg px-1"
+                className="w-full flex items-center gap-2 py-1.5 text-left active:bg-green-50 rounded-lg px-1"
               >
-                <span className="font-bold text-sky-700 text-[15px] underline decoration-sky-200 underline-offset-2 shrink-0">
+                <OperatorBadge operator={e.operator} />
+                <span className="font-bold text-green-700 text-[15px] underline decoration-green-200 underline-offset-2 shrink-0">
                   {e.route}
                 </span>
                 <span className="text-[13px] text-slate-500 truncate flex-1">

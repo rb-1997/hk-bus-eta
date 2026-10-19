@@ -158,6 +158,17 @@ export interface FavoriteRouteStop {
     route_id: number;
     route_seq: number;
   };
+  lrt?: {
+    stationId: string;
+    tc: string;
+    en: string;
+  };
+  mtrt?: {
+    line: string;
+    sta: string;
+    lineTc: string;
+    lineEn: string;
+  };
   savedAt: number;
 }
 

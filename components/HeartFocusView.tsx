@@ -2,7 +2,9 @@
 
 import useSWR from "swr";
 import { getETAs } from "@/utils/static-api";
-import type { FavoriteRouteStop } from "@/types/bus";
+import type { FavoriteRouteStop, BusRoute } from "@/types/bus";
+import { LRTStationETAs } from "./LRTStationETAs";
+import { MTRTStationETAs } from "./MTRTStationETAs";
 import { clsx } from "clsx";
 
 function OperatorBadge({ operator }: { operator: string }) {
@@ -64,6 +66,34 @@ export function HeartFocusView({
     },
     { refreshInterval: 30000, revalidateOnFocus: false, dedupingInterval: 10000 }
   );
+
+  // For LRT/MTRT hearts, show station ETAs directly
+  if (heart.operator === "LRT" && heart.lrt) {
+    const route: BusRoute = {
+      id: `LRT-${heart.lrt.stationId}`,
+      route: heart.route,
+      operator: "LRT",
+      originTc: "",
+      originEn: "",
+      destTc: heart.destTc,
+      destEn: heart.destEn,
+      lrt: heart.lrt,
+    };
+    return <LRTStationETAs route={route} />;
+  }
+  if (heart.operator === "MTRT" && heart.mtrt) {
+    const route: BusRoute = {
+      id: `MTRT-${heart.mtrt.line}-${heart.mtrt.sta}`,
+      route: heart.route,
+      operator: "MTRT",
+      originTc: "",
+      originEn: "",
+      destTc: heart.destTc,
+      destEn: heart.destEn,
+      mtrt: heart.mtrt,
+    };
+    return <MTRTStationETAs route={route} />;
+  }
 
   return (
     <div>

@@ -2,6 +2,7 @@
 
 import useSWR from "swr";
 import type { BusRoute } from "@/types/bus";
+import { useFavoriteHearts } from "@/hooks/useFavoriteHearts";
 import { clsx } from "clsx";
 
 /**
@@ -64,13 +65,32 @@ export function LRTStationETAs({ route }: { route: BusRoute }) {
     }
   );
 
+  const { isHeart, toggleHeart } = useFavoriteHearts();
+  const hearted = lrt ? isHeart(route, 1) : false;
+
   if (!lrt) return null;
 
   return (
     <div className="space-y-3">
       <div className="bg-orange-50 border border-orange-100 rounded-2xl p-4">
-        <div className="text-[14px] text-orange-700 font-medium mb-1">
-          輕鐵 · Light Rail
+        <div className="flex items-center justify-between">
+          <div className="text-[14px] text-orange-700 font-medium mb-1">
+            輕鐵 · Light Rail
+          </div>
+          <button
+            onClick={() =>
+              toggleHeart({
+                route,
+                stopSeq: 1,
+                stopNameTc: `${lrt.tc}站`,
+                stopNameEn: `${lrt.en} Stop`,
+              })
+            }
+            className="text-[22px] active:scale-110 transition"
+            aria-label={hearted ? "取消心水站" : "加入心水站"}
+          >
+            {hearted ? "❤️" : "♡"}
+          </button>
         </div>
         <div className="text-[19px] font-bold text-slate-900">
           {lrt.tc}站

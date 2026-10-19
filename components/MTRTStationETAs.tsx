@@ -5,6 +5,7 @@ import { getETAs } from "@/utils/static-api";
 import type { BusRoute, ETA } from "@/types/bus";
 import { clsx } from "clsx";
 import { useState, useEffect } from "react";
+import { useFavoriteHearts } from "@/hooks/useFavoriteHearts";
 
 // Station code -> name mapping (loaded from bundled data)
 let codeMap: Map<string, { tc: string; en: string }> | null = null;
@@ -77,6 +78,9 @@ export function MTRTStationETAs({ route }: { route: BusRoute }) {
     }
   );
 
+  const { isHeart, toggleHeart } = useFavoriteHearts();
+  const hearted = mtrt ? isHeart(route, 1) : false;
+
   if (!mtrt) return null;
 
   // Group by direction (UP/DOWN) - we use dest to distinguish
@@ -92,8 +96,24 @@ export function MTRTStationETAs({ route }: { route: BusRoute }) {
   return (
     <div className="space-y-3">
       <div className="bg-purple-50 border border-purple-100 rounded-2xl p-4">
-        <div className="text-[14px] text-purple-700 font-medium mb-1">
-          {mtrt.lineTc} · {mtrt.lineEn}
+        <div className="flex items-center justify-between">
+          <div className="text-[14px] text-purple-700 font-medium mb-1">
+            {mtrt.lineTc} · {mtrt.lineEn}
+          </div>
+          <button
+            onClick={() =>
+              toggleHeart({
+                route,
+                stopSeq: 1,
+                stopNameTc: `${mtrt.staTc}站`,
+                stopNameEn: `${mtrt.staEn} Station`,
+              })
+            }
+            className="text-[22px] active:scale-110 transition"
+            aria-label={hearted ? "取消心水站" : "加入心水站"}
+          >
+            {hearted ? "❤️" : "♡"}
+          </button>
         </div>
         <div className="text-[19px] font-bold text-slate-900">
           {mtrt.staTc}站

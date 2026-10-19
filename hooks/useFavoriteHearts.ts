@@ -69,8 +69,10 @@ export function useFavoriteHearts() {
               stopNameTc: stopNameTc || "",
               stopNameEn: stopNameEn || "",
               gmb: route.gmb,
+              lrt: route.lrt,
+              mtrt: route.mtrt,
               savedAt: Date.now(),
-            },
+            } as FavoriteRouteStop,
           ];
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(next));

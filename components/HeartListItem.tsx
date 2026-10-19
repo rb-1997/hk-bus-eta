@@ -40,6 +40,64 @@ export function HeartListItem({
       );
       const stop = stops[heart.stopSeq - 1];
       if (!stop) return [];
+      // For LRT, fetch directly
+      if (heart.operator === "LRT" && heart.lrt) {
+        try {
+          const res = await fetch(
+            `https://rt.data.gov.hk/v1/transport/mtr/lrt/getSchedule?station_id=${heart.lrt.stationId}`
+          ).then((r) => r.json());
+          if (res.status === 1 && res.platform_list) {
+            const trains: any[] = [];
+            for (const plat of res.platform_list) {
+              for (const r of plat.route_list || []) {
+                const timeStr = r.time_ch || r.time_en || "-";
+                let mins: number | null = null;
+                const m = timeStr.match(/(\d+)/);
+                if (m) mins = parseInt(m[1], 10);
+                if (timeStr.includes("即將") || timeStr.toLowerCase().includes("arriving")) mins = 0;
+                trains.push({
+                  id: `lrt-${heart.lrt.stationId}-${r.route_no}`,
+                  operator: "LRT" as const,
+                  route: `${r.route_no}號`,
+                  destEn: r.dest_en || "",
+                  destTc: r.dest_ch || "",
+                  etaMinutes: mins,
+                  sequence: trains.length + 1,
+                });
+              }
+            }
+            return trains.slice(0, 3);
+          }
+        } catch {}
+        return [];
+      }
+      // For MTR, fetch directly
+      if (heart.operator === "MTRT" && heart.mtrt) {
+        try {
+          const res = await fetch(
+            `https://rt.data.gov.hk/v1/transport/mtr/getSchedule.php?line=${heart.mtrt.line}&sta=${heart.mtrt.sta}&lang=TC`
+          ).then((r) => r.json());
+          const trains: any[] = [];
+          const data = res.data?.[`${heart.mtrt.line}-${heart.mtrt.sta}`];
+          if (data) {
+            for (const dir of ["UP", "DOWN"]) {
+              const list = data[dir] || [];
+              for (const t of list.slice(0, 2)) {
+                trains.push({
+                  id: `mtr-${heart.mtrt.sta}-${dir}-${t.seq}`,
+                  operator: "MTRT" as const,
+                  route: heart.mtrt.lineTc,
+                  destTc: t.dest || "",
+                  etaMinutes: t.time ? parseInt(t.time.split(":")[0]) : null,
+                  sequence: trains.length + 1,
+                });
+              }
+            }
+          }
+          return trains.slice(0, 3);
+        } catch {}
+        return [];
+      }
       // For GMB, need to pass gmb metadata with route_id/route_seq/stop_seq
       if (heart.operator === "GMB" && heart.gmb) {
         return getETAs({

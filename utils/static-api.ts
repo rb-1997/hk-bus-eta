@@ -765,7 +765,11 @@ export async function getAllETAsForStop(
     const links = await getStopLinks();
     // Try multiple ID formats (kmb-xxx, merged-xxx, raw)
     const linkKey = Object.keys(links).find(k => stop.id.includes(k) || k.includes(stop.id.replace(/^kmb-/, '').replace(/^merged-[^-]+-/, '')));
-    const link = linkKey ? links[linkKey] : links[stop.id];
+    let link = linkKey ? links[linkKey] : links[stop.id];
+    // Hard fallback for 皇崗口岸 HU900 (port opened 2026-10-12, data may be stale)
+    if (!link && (stop.id.includes("HU900") || (stop as any).nameTc?.includes("皇崗口岸"))) {
+      link = { ctb: [{ id: "003939", dist: 10 }], mtr: [], gmb: [] };
+    }
     if (link) {
       // CTB linked stops: query ETA (limit 1 stop to avoid request storm)
       const ctbRoutes = await getCtbStopRoutes();

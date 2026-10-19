@@ -41,10 +41,25 @@ export function HeartListItem({
       const stop = stops[heart.stopSeq - 1];
       if (!stop) return [];
       // For LRT, fetch directly
-      if (heart.operator === "LRT" && heart.lrt) {
+      // Fallback: if no lrt field (old heart), try to lookup stationId by name
+      let lrtSid = heart.lrt?.stationId;
+      if (heart.operator === "LRT" && !lrtSid) {
+        try {
+          const lrtData = await fetch("mtr/light-rail.json").then((r) => r.json());
+          const stops = lrtData.stops || {};
+          const targetName = (heart.stopNameTc || "").replace(/站$/, "");
+          for (const [sid, s] of Object.entries(stops) as any) {
+            if ((s as any).tc === targetName || (s as any).tc === heart.stopNameTc) {
+              lrtSid = sid;
+              break;
+            }
+          }
+        } catch {}
+      }
+      if (heart.operator === "LRT" && lrtSid) {
         try {
           const res = await fetch(
-            `https://rt.data.gov.hk/v1/transport/mtr/lrt/getSchedule?station_id=${heart.lrt.stationId}`
+            `https://rt.data.gov.hk/v1/transport/mtr/lrt/getSchedule?station_id=${lrtSid}`
           ).then((r) => r.json());
           if (res.status === 1 && res.platform_list) {
             const trains: any[] = [];
@@ -56,7 +71,7 @@ export function HeartListItem({
                 if (m) mins = parseInt(m[1], 10);
                 if (timeStr.includes("即將") || timeStr.toLowerCase().includes("arriving")) mins = 0;
                 trains.push({
-                  id: `lrt-${heart.lrt.stationId}-${r.route_no}`,
+                  id: `lrt-${lrtSid}-${r.route_no}`,
                   operator: "LRT" as const,
                   route: `${r.route_no}號`,
                   destEn: r.dest_en || "",
@@ -72,23 +87,56 @@ export function HeartListItem({
         return [];
       }
       // For MTR, fetch directly
-      if (heart.operator === "MTRT" && heart.mtrt) {
+      // Fallback: if no mtrt field (old heart), try to lookup by station name
+      let mtrLine = heart.mtrt?.line;
+      let mtrSta = heart.mtrt?.sta;
+      let mtrLineTc = heart.mtrt?.lineTc || "";
+      if (heart.operator === "MTRT" && (!mtrLine || !mtrSta)) {
+        try {
+          const mtrData = await fetch("mtr/train-stations.json").then((r) => r.json());
+          const targetName = (heart.stopNameTc || "").replace(/站$/, "");
+          for (const [lineCode, stations] of Object.entries(mtrData.lines || {}) as any) {
+            if (!Array.isArray(stations)) continue;
+            for (const s of stations) {
+              if (s.tc === targetName || s.tc === heart.stopNameTc) {
+                mtrLine = lineCode;
+                mtrSta = s.code;
+                mtrLineTc = s.tc;
+                break;
+              }
+            }
+            if (mtrLine && mtrSta) break;
+          }
+        } catch {}
+      }
+      if (heart.operator === "MTRT" && mtrLine && mtrSta) {
         try {
           const res = await fetch(
-            `https://rt.data.gov.hk/v1/transport/mtr/getSchedule.php?line=${heart.mtrt.line}&sta=${heart.mtrt.sta}&lang=TC`
+            `https://rt.data.gov.hk/v1/transport/mtr/getSchedule.php?line=${mtrLine}&sta=${mtrSta}&lang=TC`
           ).then((r) => r.json());
           const trains: any[] = [];
-          const data = res.data?.[`${heart.mtrt.line}-${heart.mtrt.sta}`];
+          const data = res.data?.[`${mtrLine}-${mtrSta}`];
           if (data) {
             for (const dir of ["UP", "DOWN"]) {
               const list = data[dir] || [];
               for (const t of list.slice(0, 2)) {
+                // Parse "2026-10-19 12:18:07" format
+                let mins: number | null = null;
+                const timeStr = t.time || "";
+                if (timeStr.includes("-") && timeStr.includes(":")) {
+                  const arr = new Date(timeStr.replace(" ", "T"));
+                  if (!isNaN(arr.getTime())) {
+                    mins = Math.round((arr.getTime() - Date.now()) / 60000);
+                    if (mins < 0) mins = 0;
+                  }
+                }
                 trains.push({
-                  id: `mtr-${heart.mtrt.sta}-${dir}-${t.seq}`,
+                  id: `mtr-${mtrSta}-${dir}-${t.seq}`,
                   operator: "MTRT" as const,
-                  route: heart.mtrt.lineTc,
+                  route: mtrLineTc || heart.destTc,
                   destTc: t.dest || "",
-                  etaMinutes: t.time ? parseInt(t.time.split(":")[0]) : null,
+                  destEn: t.dest || "",
+                  etaMinutes: mins,
                   sequence: trains.length + 1,
                 });
               }

@@ -239,12 +239,36 @@ export function NearbyTransportCard({
             <div className="text-[12px] text-purple-600 mt-0.5">{item.mtrt.lineTc}</div>
           )}
         </div>
-        <ChevronDown
-          className={clsx(
-            "w-5 h-5 text-slate-400 shrink-0 mt-0.5 transition-transform",
-            expanded && "rotate-180"
+        <div className="flex items-center gap-1 shrink-0 mt-0.5">
+          {item.kind === "bus" && isFavorite && toggleFavorite && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleFavorite({
+                  id: item.id,
+                  nameTc: item.nameTc,
+                  nameEn: item.nameEn,
+                  lat: item.lat,
+                  lng: item.lng,
+                });
+              }}
+              className="p-1.5 rounded-full active:scale-90 transition"
+              aria-label={isFavorite(item.id) ? "取消收藏" : "收藏車站"}
+            >
+              {isFavorite(item.id) ? (
+                <Star className="w-5 h-5 text-amber-400 fill-amber-400" />
+              ) : (
+                <Star className="w-5 h-5 text-slate-300" />
+              )}
+            </button>
           )}
-        />
+          <ChevronDown
+            className={clsx(
+              "w-5 h-5 text-slate-400 transition-transform",
+              expanded && "rotate-180"
+            )}
+          />
+        </div>
       </button>
 
       <div className="px-4 pb-3">
@@ -293,35 +317,7 @@ export function NearbyTransportCard({
           </div>
         )}
       </div>
-      {item.kind === "bus" && isFavorite && toggleFavorite && (
-        <div className="flex items-center justify-end px-4 py-2 bg-slate-50/60 border-t border-slate-100">
-          <button
-            onClick={() =>
-              toggleFavorite({
-                id: item.id,
-                nameTc: item.nameTc,
-                nameEn: item.nameEn,
-                lat: item.lat,
-                lng: item.lng,
-              })
-            }
-            className="flex items-center gap-1 text-[13px] text-slate-500 active:text-amber-500"
-            aria-label="收藏車站"
-          >
-            {isFavorite(item.id) ? (
-              <>
-                <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
-                已收藏
-              </>
-            ) : (
-              <>
-                <StarOff className="w-4 h-4" />
-                收藏車站
-              </>
-            )}
-          </button>
-        </div>
-      )}
+
     </div>
   );
 }

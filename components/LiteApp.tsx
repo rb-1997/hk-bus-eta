@@ -515,10 +515,10 @@ export default function LiteApp() {
     } catch { return 1; }
   });
   const cycleFontScale = () => {
-    const next = fontScale >= 1.5 ? 1 : fontScale + 0.25;
-    const rounded = Math.round(next * 100) / 100;
-    setFontScale(rounded);
-    try { localStorage.setItem("hk-bus-eta-font-scale", String(rounded)); } catch {}
+    // Obvious jumps: 100% -> 150% -> 200% -> back
+    const next = fontScale >= 2 ? 1 : fontScale >= 1.5 ? 2 : 1.5;
+    setFontScale(next);
+    try { localStorage.setItem("hk-bus-eta-font-scale", String(next)); } catch {}
   };
   const [selectedRoute, setSelectedRoute] = useState<BusRoute | null>(null);
   const [heartFocus, setHeartFocus] = useState<FavoriteRouteStop | null>(null);
@@ -676,7 +676,7 @@ export default function LiteApp() {
   const favCount = favorites.length + favRoutes.length + hearts.length;
 
   return (
-    <main className="h-[100dvh] w-full flex flex-col bg-[#FFFBF7] overflow-hidden" style={{ fontSize: `${fontScale * 100}%` }}>
+    <main className="h-[100dvh] w-full flex flex-col bg-[#FFFBF7] overflow-hidden" style={{ zoom: fontScale } as any}>
       {/* header - Japanese style */}
       <header className="shrink-0 sticky top-0 z-20 bg-[#FFFBF7] border-b border-[#F5E6D3] px-4 pt-3 pb-2.5">
         {/* Row 1: Action buttons - always visible */}
@@ -1136,8 +1136,18 @@ export default function LiteApp() {
             {favTab === "stops" && (
               <div className="space-y-2">
                 {favorites.length === 0 && (
-                  <div className="bg-white rounded-2xl p-6 text-center text-[15px] text-slate-500">
-                    未收藏任何車站
+                  <div className="bg-white rounded-2xl p-6 text-center border border-[#F5E6D3]">
+                    <div className="text-[40px] mb-2">⭐</div>
+                    <div className="text-[15px] text-[#4A3728] font-medium mb-1">未收藏任何車站</div>
+                    <div className="text-[13px] text-[#8B6F47] leading-relaxed">
+                      去「附近」頁，撳每張巴士站卡右上角嘅 ⭐<br />就可以收藏成日用嘅車站
+                    </div>
+                    <button
+                      onClick={() => setTab("nearby")}
+                      className="mt-3 px-5 py-2 rounded-full bg-gradient-to-br from-[#FFB7C5] to-[#FF8FA3] text-white text-[14px] font-medium shadow-md"
+                    >
+                      去附近睇下
+                    </button>
                   </div>
                 )}
                 {favorites.map((f) => {

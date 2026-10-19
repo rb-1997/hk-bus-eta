@@ -182,9 +182,33 @@ export async function searchRoutes(query: string): Promise<BusRoute[]> {
     if (!gmbIndexCache) {
       gmbIndexCache = await plainFetch("gmb/index.json").catch(() => []);
     }
+    // Also load stop search index for "routes passing through" search
+    let gmbStopIndex: Record<string, string[]> | null = null;
+    try {
+      gmbStopIndex = await plainFetch("gmb/stop-search-index.json").catch(() => null);
+    } catch {}
+    // Find GMB routes whose STOPS contain the query (e.g. "大樹下")
+    const gmbStopMatched = new Set<string>(); // "region|code|route_seq"
+    if (q && gmbStopIndex) {
+      const qTrim = query.trim();
+      for (const [stopName, routeKeys] of Object.entries(gmbStopIndex)) {
+        if (stopName.includes(qTrim)) {
+          for (const key of routeKeys as string[]) {
+            const parts = key.split("|");
+            if (parts.length >= 3) {
+              gmbStopMatched.add(`${parts[0]}|${parts[1]}|${parts[2]}`);
+            }
+          }
+          if (gmbStopMatched.size >= 20) break; // Limit
+        }
+      }
+    }
     for (const g of gmbIndexCache || []) {
+      const stopKey = `${g.region}|${g.code}|${g.route_seq}`;
+      const matchedByStop = gmbStopMatched.has(stopKey);
       if (
         q &&
+        !matchedByStop &&
         !g.code.toUpperCase().includes(q) &&
         !(g.dest_tc || "").includes(query.trim()) &&
         !(g.orig_tc || "").includes(query.trim()) &&

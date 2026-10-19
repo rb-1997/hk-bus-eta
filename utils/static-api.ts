@@ -343,6 +343,9 @@ export async function searchRoutes(query: string): Promise<BusRoute[]> {
             destTc: "巴士站",
             destEn: "Bus Stop",
             directionLabel: `車站 · ${nameEn}`,
+            // Mark as stop result with full stop data
+            isStopResult: true,
+            stopData: s,
           } as any);
           count++;
         }

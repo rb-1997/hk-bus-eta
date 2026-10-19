@@ -428,6 +428,54 @@ function LiteRouteStopsList({
 
 type Tab = "nearby" | "routes" | "favorites";
 
+// Component to show ETAs for a stop search result
+function StopSearchResultETAs({ stop }: { stop: any }) {
+  const { data: etas, isLoading } = useSWR(
+    ["stop-search-etas", stop.id],
+    async () => {
+      const { getAllETAsForStop } = await import("@/utils/static-api");
+      // Convert stop to the format getAllETAsForStop expects
+      const stopObj = {
+        id: stop.id,
+        originalIds: stop.originalIds || [{ operator: "KMB", id: stop.id.replace(/^kmb-/, "") }],
+        nameTc: stop.nameTc,
+        nameEn: stop.nameEn,
+      };
+      return getAllETAsForStop(stopObj as any);
+    },
+    { refreshInterval: 30000, revalidateOnFocus: false }
+  );
+
+  if (isLoading) {
+    return <div className="bg-white rounded-2xl p-6 text-center text-[15px] text-slate-500">載入班次中…</div>;
+  }
+
+  const list = (etas || []).slice(0, 20);
+  if (list.length === 0) {
+    return <div className="bg-white rounded-2xl p-6 text-center text-[15px] text-slate-500">暫無班次資料</div>;
+  }
+
+  return (
+    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+      <div className="px-4 py-3 border-b border-slate-100">
+        <div className="font-semibold text-[16px]">{stop.nameTc}</div>
+        {stop.nameEn && <div className="text-[13px] text-slate-400">{stop.nameEn}</div>}
+      </div>
+      <div className="px-4 pb-2">
+        {list.map((e: any) => (
+          <div key={e.id} className="flex items-center gap-2 py-2 border-b border-slate-50 last:border-0">
+            <span className="font-bold text-sky-700 text-[15px]">{e.route}</span>
+            <span className="text-[13px] text-slate-500 flex-1 truncate">往 {e.destTc || e.destEn}</span>
+            <span className="text-[14px] font-semibold">
+              {e.etaMinutes !== null ? `${e.etaMinutes} 分鐘` : "—"}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function LiteApp() {
   const [tab, setTab] = useState<Tab>("nearby");
   const [favTab, setFavTab] = useState<"hearts" | "routes" | "stops">("hearts");
@@ -816,7 +864,11 @@ export default function LiteApp() {
                   </button>
                 </div>
 
-                {selectedRoute.operator === "MTRT" ? (
+                {(selectedRoute as any).isStopResult ? (
+                  <div className="mt-3">
+                    <StopSearchResultETAs stop={(selectedRoute as any).stopData} />
+                  </div>
+                ) : selectedRoute.operator === "MTRT" ? (
                   <div className="mt-3">
                     <MTRTStationETAs route={selectedRoute} />
                   </div>

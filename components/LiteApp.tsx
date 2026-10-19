@@ -597,6 +597,18 @@ export default function LiteApp() {
           >
             <LocateFixed className={clsx("w-5 h-5", geoLoading && "animate-pulse")} />
           </button>
+          {(heartFocus || selectedRoute) && (
+            <button
+              onClick={() => {
+                setHeartFocus(null);
+                setSelectedRoute(null);
+              }}
+              className="flex items-center justify-center h-11 px-3 rounded-2xl bg-slate-100 text-sky-600 text-[15px] font-medium active:scale-95 transition shrink-0"
+              aria-label="返回"
+            >
+              ← 返回
+            </button>
+          )}
           <div className="relative flex-1">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input
@@ -608,6 +620,7 @@ export default function LiteApp() {
                 setRouteQuery(e.target.value);
                 setTab("routes");
                 setSelectedRoute(null);
+                setHeartFocus(null);
               }}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
@@ -621,6 +634,7 @@ export default function LiteApp() {
                 onClick={() => {
                   setRouteQuery("");
                   setSelectedRoute(null);
+                  setHeartFocus(null);
                 }}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
                 aria-label="清除"
@@ -634,6 +648,8 @@ export default function LiteApp() {
               inputRef.current?.blur();
               if (routeQuery.trim()) {
                 setTab("routes");
+                setHeartFocus(null);
+                setSelectedRoute(null);
               }
             }}
             className="flex items-center justify-center w-11 h-11 rounded-2xl bg-slate-100 text-slate-600 active:bg-sky-500 active:text-white active:scale-95 transition shrink-0"
@@ -752,12 +768,6 @@ export default function LiteApp() {
             ) : selectedRoute ? (
               <div>
                 <div className="bg-white rounded-2xl border border-slate-100 shadow-sm px-4 py-3 flex items-center gap-3">
-                  <button
-                    onClick={() => setSelectedRoute(null)}
-                    className="text-sky-600 text-[15px] font-medium shrink-0"
-                  >
-                    ← 返回
-                  </button>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <OperatorBadge operator={selectedRoute.operator} />

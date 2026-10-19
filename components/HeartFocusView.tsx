@@ -68,9 +68,6 @@ export function HeartFocusView({
   return (
     <div>
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm px-4 py-3 flex items-center gap-3">
-        <button onClick={onBack} className="text-sky-600 text-[17px] font-medium shrink-0">
-          ← 返回
-        </button>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <OperatorBadge operator={heart.operator} />

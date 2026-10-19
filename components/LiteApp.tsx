@@ -515,7 +515,7 @@ export default function LiteApp() {
     } catch { return 1; }
   });
   const cycleFontScale = () => {
-    const next = fontScale >= 1.3 ? 1 : fontScale + 0.15;
+    const next = fontScale >= 1.5 ? 1 : fontScale + 0.25;
     const rounded = Math.round(next * 100) / 100;
     setFontScale(rounded);
     try { localStorage.setItem("hk-bus-eta-font-scale", String(rounded)); } catch {}
@@ -676,114 +676,119 @@ export default function LiteApp() {
   const favCount = favorites.length + favRoutes.length + hearts.length;
 
   return (
-    <main className="h-[100dvh] w-full flex flex-col bg-slate-100 overflow-hidden" style={{ fontSize: `${fontScale * 100}%` }}>
-      {/* header */}
-      <header className="shrink-0 sticky top-0 z-20 bg-white border-b border-slate-200 px-4 pt-3 pb-2.5">
-        <div className="flex items-center gap-2">
+    <main className="h-[100dvh] w-full flex flex-col bg-[#FFFBF7] overflow-hidden" style={{ fontSize: `${fontScale * 100}%` }}>
+      {/* header - Japanese style */}
+      <header className="shrink-0 sticky top-0 z-20 bg-[#FFFBF7] border-b border-[#F5E6D3] px-4 pt-3 pb-2.5">
+        {/* Row 1: Action buttons - always visible */}
+        <div className="flex items-center gap-2.5">
           <button
             onClick={requestLocation}
             disabled={geoLoading}
-            className="flex items-center justify-center w-11 h-11 rounded-2xl bg-sky-500 text-white shadow-md shadow-sky-500/25 active:scale-95 transition disabled:opacity-60 shrink-0"
+            className="flex flex-col items-center justify-center w-14 h-14 rounded-3xl bg-gradient-to-br from-[#FFB7C5] to-[#FF8FA3] text-white shadow-lg shadow-pink-200/50 active:scale-95 transition disabled:opacity-60 shrink-0"
             aria-label="定位"
           >
             <LocateFixed className={clsx("w-5 h-5", geoLoading && "animate-pulse")} />
+            <span className="text-[10px] font-medium mt-0.5">定位</span>
           </button>
-          <button
-            onClick={cycleFontScale}
-            className="flex items-center justify-center w-11 h-11 rounded-2xl bg-slate-100 text-slate-700 active:scale-95 transition shrink-0"
-            aria-label="字體大小"
-            title={`字體: ${Math.round(fontScale * 100)}%`}
-          >
-            <span className="text-[18px] font-bold">A{fontScale > 1 ? "+" : ""}</span>
-          </button>
-          {(heartFocus || selectedRoute || routeQuery) && (
-            <button
-              onClick={() => {
-                setHeartFocus(null);
-                setSelectedRoute(null);
-                setRouteQuery("");
-                setTab("nearby");
-              }}
-              className="flex items-center justify-center w-11 h-11 rounded-2xl bg-slate-100 text-slate-600 active:scale-95 transition shrink-0"
-              aria-label="主頁"
-            >
-              <span className="text-[20px]">🏠</span>
-            </button>
-          )}
-          {(heartFocus || selectedRoute) && (
-            <button
-              onClick={() => {
-                setHeartFocus(null);
-                setSelectedRoute(null);
-              }}
-              className="flex items-center justify-center h-11 px-3 rounded-2xl bg-slate-100 text-sky-600 text-[15px] font-medium active:scale-95 transition shrink-0"
-              aria-label="返回"
-            >
-              ← 返回
-            </button>
-          )}
-          <div className="relative flex-1">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <input
-              ref={inputRef}
-              type="text"
-              placeholder="搜路線，例如 261、44B1、K52"
-              value={routeQuery}
-              onChange={(e) => {
-                setRouteQuery(e.target.value);
-                setTab("routes");
-                setSelectedRoute(null);
-                setHeartFocus(null);
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  inputRef.current?.blur();
-                }
-              }}
-              className="w-full h-11 pl-10 pr-9 rounded-2xl bg-slate-100 border-0 text-[17px] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500/40"
-            />
-            {routeQuery && (
-              <button
-                onClick={() => {
-                  setRouteQuery("");
-                  setSelectedRoute(null);
-                  setHeartFocus(null);
-                }}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
-                aria-label="清除"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            )}
-          </div>
           <button
             onClick={() => {
-              inputRef.current?.blur();
-              if (routeQuery.trim()) {
-                setTab("routes");
-                setHeartFocus(null);
-                setSelectedRoute(null);
-              }
+              setHeartFocus(null);
+              setSelectedRoute(null);
+              setRouteQuery("");
+              setTab("nearby");
             }}
-            className="flex items-center justify-center w-11 h-11 rounded-2xl bg-slate-100 text-slate-600 active:bg-sky-500 active:text-white active:scale-95 transition shrink-0"
-            aria-label="搜尋"
+            className="flex flex-col items-center justify-center w-14 h-14 rounded-3xl bg-white border border-[#F5E6D3] text-[#8B6F47] shadow-sm active:scale-95 transition shrink-0"
+            aria-label="主頁"
           >
-            <Search className="w-5 h-5" />
+            <span className="text-[20px] leading-none">🏠</span>
+            <span className="text-[10px] font-medium mt-0.5">屋企</span>
           </button>
           <button
             onClick={() => {
               mutate(() => true);
               if (tab === "nearby") requestLocation();
             }}
-            className="flex items-center justify-center w-11 h-11 rounded-2xl bg-slate-100 text-slate-600 active:bg-sky-500 active:text-white active:scale-95 transition shrink-0"
+            className="flex flex-col items-center justify-center w-14 h-14 rounded-3xl bg-white border border-[#F5E6D3] text-[#8B6F47] shadow-sm active:scale-95 transition shrink-0"
             aria-label="重新整理"
           >
             <RefreshCw className="w-5 h-5" />
+            <span className="text-[10px] font-medium mt-0.5">更新</span>
           </button>
+          <button
+            onClick={cycleFontScale}
+            className="flex flex-col items-center justify-center w-14 h-14 rounded-3xl bg-white border border-[#F5E6D3] text-[#8B6F47] shadow-sm active:scale-95 transition shrink-0"
+            aria-label="字體大小"
+            title={`字體: ${Math.round(fontScale * 100)}%`}
+          >
+            <span className="text-[16px] font-bold leading-none">あA</span>
+            <span className="text-[10px] font-medium mt-0.5">{Math.round(fontScale * 100)}%</span>
+          </button>
+          {(heartFocus || selectedRoute) && (
+            <button
+              onClick={() => {
+                setHeartFocus(null);
+                setSelectedRoute(null);
+              }}
+              className="flex items-center justify-center h-14 px-4 rounded-3xl bg-[#FFF5E6] border border-[#F5E6D3] text-[#8B6F47] text-[14px] font-medium active:scale-95 transition shrink-0"
+              aria-label="返回"
+            >
+              ← 返回
+            </button>
+          )}
+        </div>
+        {/* Row 2: Search bar - independent full-width row */}
+        <div className="relative mt-2.5">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#C4A77D]" />
+          <input
+            ref={inputRef}
+            type="text"
+            placeholder="最強搜尋器可輸入目的地及巴士小巴號碼"
+            value={routeQuery}
+            onChange={(e) => {
+              setRouteQuery(e.target.value);
+              setTab("routes");
+              setSelectedRoute(null);
+              setHeartFocus(null);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                inputRef.current?.blur();
+              }
+            }}
+            className="w-full h-12 pl-12 pr-11 rounded-full bg-white border-2 border-[#F5E6D3] text-[16px] text-[#4A3728] placeholder:text-[#C4A77D] placeholder:text-[14px] focus:outline-none focus:border-[#FFB7C5] focus:ring-4 focus:ring-pink-100/50 shadow-sm"
+          />
+          {routeQuery ? (
+            <button
+              onClick={() => {
+                setRouteQuery("");
+                setSelectedRoute(null);
+                setHeartFocus(null);
+              }}
+              className="absolute right-4 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-[#F5E6D3] flex items-center justify-center text-[#8B6F47]"
+              aria-label="清除"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          ) : (
+            <button
+              onClick={() => {
+                inputRef.current?.blur();
+                if (routeQuery.trim()) {
+                  setTab("routes");
+                  setHeartFocus(null);
+                  setSelectedRoute(null);
+                }
+              }}
+              className="absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-gradient-to-br from-[#FFB7C5] to-[#FF8FA3] flex items-center justify-center text-white shadow-md"
+              aria-label="搜尋"
+            >
+              <Search className="w-4 h-4" />
+            </button>
+          )}
         </div>
 
-        {/* tabs */}
-        <div className="flex p-1 bg-slate-100 rounded-2xl mt-2.5">
+        {/* tabs - Japanese style */}
+        <div className="flex p-1.5 bg-[#FFF5E6] border border-[#F5E6D3] rounded-full mt-2.5 shadow-sm">
           {(
             [
               { id: "nearby", label: "附近", icon: MapPin },
@@ -795,10 +800,10 @@ export default function LiteApp() {
               key={t.id}
               onClick={() => setTab(t.id as Tab)}
               className={clsx(
-                "flex-1 py-2 text-[14px] font-medium rounded-xl transition-all flex items-center justify-center gap-1",
+                "flex-1 py-2.5 text-[14px] font-medium rounded-full transition-all flex items-center justify-center gap-1.5",
                 tab === t.id
-                  ? "bg-white text-slate-900 shadow-sm"
-                  : "text-slate-500"
+                  ? "bg-gradient-to-br from-[#FFB7C5] to-[#FF8FA3] text-white shadow-md shadow-pink-200/50"
+                  : "text-[#8B6F47]"
               )}
             >
               <t.icon className="w-3.5 h-3.5" />

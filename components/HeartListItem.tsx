@@ -154,6 +154,19 @@ export function HeartListItem({
           },
         } as any);
       }
+      // For NLB: routeId + stopSeq (= NLB stopId) drive the ETA call
+      if (heart.operator === "NLB" && heart.nlb) {
+        return getETAs({
+          operator: "NLB",
+          nlb: {
+            routeId: heart.nlb.routeId,
+            stopId: heart.stopSeq,
+            routeNo: heart.route,
+            dest_tc: heart.destTc,
+            dest_en: heart.destEn,
+          },
+        } as any);
+      }
       // For buses (KMB/CTB/MTR Bus): get stop via getRouteStops
       const stops = await getRouteStops(
         heart.route,

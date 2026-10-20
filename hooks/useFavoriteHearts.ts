@@ -77,6 +77,7 @@ export function useFavoriteHearts() {
             gmb: (route as any).gmb,
             lrt: (route as any).lrt,
             mtrt: (route as any).mtrt,
+            nlb: (route as any).nlb,
             savedAt: Date.now(),
           } as FavoriteRouteStop,
         ];

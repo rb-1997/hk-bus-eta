@@ -22,6 +22,7 @@ let routesCacheAt = 0;
 let gmbIndexCache: any[] | null = null;
 let mtrIndexCache: any[] | null = null;
 let mtrTrainCache: any | null = null;
+let nlbRoutesCache: any[] | null = null;
 let lrtCache: any | null = null;
 const STOPS_TTL = 24 * 3600 * 1000;
 const ROUTES_TTL = 24 * 3600 * 1000;
@@ -39,6 +40,8 @@ async function plainFetch(url: string) {
   return res.json();
 }
 
+// NLB (New Lantao Bus) API has CORS * (verified 2026-10-21) — call directly.
+const NLB_BASE = "https://rt.data.gov.hk/v2/transport/nlb";
 const KMB_BASE = "https://data.etabus.gov.hk/v1/transport/kmb";
 const CTB_BASE = "https://rt.data.gov.hk/v2/transport/citybus";
 
@@ -308,6 +311,38 @@ export async function searchRoutes(query: string): Promise<BusRoute[]> {
     /* MTR index optional */
   }
 
+  // New Lantao Bus (bundled route index; stops/ETA live from official API)
+  try {
+    if (!nlbRoutesCache) {
+      nlbRoutesCache = await plainFetch("nlb/routes.json").catch(() => []);
+    }
+    for (const n of nlbRoutesCache || []) {
+      if (
+        q &&
+        !String(n.routeNo).toUpperCase().includes(q) &&
+        !(n.dest_tc || "").includes(query.trim()) &&
+        !(n.orig_tc || "").includes(query.trim()) &&
+        !(n.dest_en || "").toUpperCase().includes(q) &&
+        !(n.orig_en || "").toUpperCase().includes(q)
+      ) {
+        continue;
+      }
+      routes.push({
+        id: `NLB-${n.routeId}`,
+        operator: "NLB",
+        route: n.routeNo,
+        originEn: n.orig_en || "",
+        originTc: n.orig_tc || "",
+        destEn: n.dest_en || "",
+        destTc: n.dest_tc || "",
+        directionLabel: `往 ${n.dest_tc}`,
+        nlb: { routeId: n.routeId },
+      });
+    }
+  } catch {
+    /* NLB index optional */
+  }
+
   // MTR Trains (heavy rail, bundled static from opendata.mtr.com.hk)
   // Search by station name -> returns stations (each station is a "stop")
   try {
@@ -458,10 +493,29 @@ export async function searchRoutes(query: string): Promise<BusRoute[]> {
 
 export async function getRouteStops(
   route: string,
-  operator: "KMB" | "CTB" | "LWB" | "GMB" | "MTR" | null,
+  operator: "KMB" | "CTB" | "LWB" | "GMB" | "MTR" | "NLB" | null,
   bound: string = "O",
-  gmbMeta?: { region: string; code: string; route_id: number; route_seq: number }
+  gmbMeta?: { region: string; code: string; route_id: number; route_seq: number },
+  nlbMeta?: { routeId: number }
 ): Promise<RouteStopSeq[]> {
+  // New Lantao Bus: live from official API (routeId identifies the direction)
+  if (operator === "NLB" && nlbMeta) {
+    try {
+      const j = await plainFetch(
+        `${NLB_BASE}/stop.php?action=list&routeId=${nlbMeta.routeId}`
+      );
+      return (j.stops || []).map((s: any) => ({
+        stop: String(s.stopId),
+        seq: Number(s.stopId),
+        lat: s.latitude != null ? Number(s.latitude) : undefined,
+        lng: s.longitude != null ? Number(s.longitude) : undefined,
+        name_tc: s.stopName_c,
+        name_en: s.stopName_e,
+      }));
+    } catch {
+      return [];
+    }
+  }
   // MTR Bus: bundled per-route JSON from opendata.mtr.com.hk (has coords + names)
   if (operator === "MTR") {
     const dir = bound === "I" || bound === "inbound" ? "I" : "O";
@@ -523,7 +577,7 @@ export async function getRouteStops(
 
 export interface ETAQuery {
   stopId?: string;
-  operator?: "KMB" | "CTB" | "GMB" | "MTR" | "MTRT" | "LRT" | null;
+  operator?: "KMB" | "CTB" | "GMB" | "MTR" | "MTRT" | "LRT" | "NLB" | null;
   originalId?: string;
   routes?: string; // comma separated, for CTB
   gmb?: {
@@ -551,6 +605,13 @@ export interface ETAQuery {
     tc: string;
     en: string;
   };
+  nlb?: {
+    routeId: number; // NLB API routeId (one per direction)
+    stopId: number; // NLB API stopId (= stop sequence on that route)
+    routeNo: string;
+    dest_tc: string;
+    dest_en: string;
+  };
 }
 
 function cleanKmbId(stopId: string, originalId?: string) {
@@ -560,7 +621,7 @@ function cleanKmbId(stopId: string, originalId?: string) {
 
 export async function getETAs(query: ETAQuery): Promise<ETA[]> {
   const { stopId, operator, originalId, routes } = query;
-  if (!stopId && !originalId && !(operator === "GMB" && query.gmb) && !(operator === "MTR" && query.mtr)) return [];
+  if (!stopId && !originalId && !(operator === "GMB" && query.gmb) && !(operator === "MTR" && query.mtr) && !(operator === "NLB" && query.nlb)) return [];
   let etas: ETA[] = [];
 
   // MTR Bus via rt.data.gov.hk (has CORS *, POST API)
@@ -683,6 +744,41 @@ export async function getETAs(query: ETAQuery): Promise<ETA[]> {
         }
         etas = trains;
       }
+    } catch {
+      etas = [];
+    }
+    return etas;
+  }
+
+  // New Lantao Bus via official API (has CORS *, verified 2026-10-21)
+  // Note: NLB ETAs are timetable/historical-data estimates, not live GPS.
+  if (operator === "NLB" && query.nlb) {
+    const { routeId, stopId: nlbStopId, routeNo, dest_tc, dest_en } = query.nlb;
+    try {
+      const res = await fetch(
+        `${NLB_BASE}/stop.php?action=estimatedArrivals&routeId=${routeId}&stopId=${nlbStopId}&language=zh`
+      ).then((r) => r.json());
+      const list = res?.estimatedArrivals || [];
+      const now = Date.now();
+      etas = list
+        .filter((e: any) => e.estimatedArrivalTime)
+        .map((e: any, i: number) => {
+          const t = new Date(String(e.estimatedArrivalTime).replace(" ", "T")).getTime();
+          const mins = Math.max(0, Math.round((t - now) / 60000));
+          return {
+            id: `nlb-${routeId}-${nlbStopId}-${i}`,
+            operator: "NLB" as const,
+            route: routeNo,
+            destEn: dest_en,
+            destTc: dest_tc,
+            eta: e.estimatedArrivalTime,
+            etaMinutes: mins,
+            remarkEn: e.routeVariantName || undefined,
+            remarkTc: e.routeVariantName || undefined,
+            sequence: i + 1,
+            isRealtime: String(e.noGPS) === "1",
+          };
+        });
     } catch {
       etas = [];
     }

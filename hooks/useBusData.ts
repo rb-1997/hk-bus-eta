@@ -79,17 +79,18 @@ export function useRouteSearch(query: string) {
 
 export function useRouteStops(
   route: string | null,
-  operator: "KMB" | "CTB" | "LWB" | "GMB" | "MTR" | null,
+  operator: "KMB" | "CTB" | "LWB" | "GMB" | "MTR" | "NLB" | null,
   bound: string = "O",
-  gmbMeta?: { region: string; code: string; route_id: number; route_seq: number }
+  gmbMeta?: { region: string; code: string; route_id: number; route_seq: number },
+  nlbMeta?: { routeId: number }
 ) {
   const key =
     route && operator
-      ? (["route-stops", route, operator, bound, gmbMeta?.route_seq ?? 0] as [string, string, string, string, number])
+      ? (["route-stops", route, operator, bound, gmbMeta?.route_seq ?? nlbMeta?.routeId ?? 0] as [string, string, string, string, number])
       : null;
 
   const { data, error, isLoading } = useSWR<RouteStopSeq[]>(key, (k: [string, string, string, string, number]) =>
-    getRouteStops(k[1], k[2] as "KMB" | "CTB" | "LWB" | "GMB" | "MTR", k[3], gmbMeta), {
+    getRouteStops(k[1], k[2] as "KMB" | "CTB" | "LWB" | "GMB" | "MTR" | "NLB", k[3], gmbMeta, nlbMeta), {
     revalidateOnFocus: false,
     dedupingInterval: 300000,
   });

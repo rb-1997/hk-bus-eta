@@ -52,6 +52,7 @@ export function useFavoriteRoutes() {
                 directionLabel: route.directionLabel,
                 bound: route.bound,
                 gmb: route.gmb,
+                nlb: route.nlb,
                 savedAt: Date.now(),
               },
             ];

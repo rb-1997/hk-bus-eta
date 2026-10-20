@@ -1,4 +1,4 @@
-export type Operator = "KMB" | "CTB" | "LWB" | "GMB" | "MTR" | "MTRT" | "LRT";
+export type Operator = "KMB" | "CTB" | "LWB" | "GMB" | "MTR" | "MTRT" | "LRT" | "NLB";
 
 export interface BusStop {
   id: string; // unified or original
@@ -57,6 +57,10 @@ export interface BusRoute {
   };
   // For Light Rail route search results (e.g. "505"), the route number
   lrtRoute?: string;
+  // For New Lantao Bus (NLB): API routeId (one per direction)
+  nlb?: {
+    routeId: number;
+  };
 }
 
 // A stop in a route's stop sequence. KMB/CTB resolve coords via the global
@@ -133,6 +137,9 @@ export interface FavoriteRoute {
     route_id: number;
     route_seq: number;
   };
+  nlb?: {
+    routeId: number;
+  };
   savedAt: number;
 }
 
@@ -168,6 +175,9 @@ export interface FavoriteRouteStop {
     sta: string;
     lineTc: string;
     lineEn: string;
+  };
+  nlb?: {
+    routeId: number;
   };
   savedAt: number;
 }

@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import type { BusStop } from "@/types/bus";
 
 export interface NearbyTransport {
-  kind: "bus" | "mtr" | "lrt" | "gmb";
+  kind: "bus" | "mtr" | "lrt" | "gmb" | "nlb";
   id: string;
   nameTc: string;
   nameEn: string;
@@ -16,6 +16,7 @@ export interface NearbyTransport {
   mtrt?: { line: string; sta: string; lineTc: string; lineEn: string };
   lrt?: { stationId: string; tc: string; en: string };
   gmb?: { route_id: number; route_seq: number; stop_seq: number; code: string; dest_tc: string; dest_en: string; stop_id: number };
+  nlb?: { routeId: number; routeNo: string; stopId: number; dest_tc: string; dest_en: string };
 }
 
 function haversine(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -151,6 +152,36 @@ export function useNearbyTransport(
                   dest_tc: r.dest_tc,
                   dest_en: r.dest_en,
                   stop_id: parseInt(s.stop_id),
+                },
+              });
+            }
+          }
+        }
+      } catch {}
+
+      // NLB stops (within range) - direct from bundled data
+      try {
+        const res = await fetch("nlb/all-stops.json");
+        const nlbStops = await res.json();
+        for (const s of nlbStops) {
+          if (s.lat == null || s.lng == null) continue;
+          const dist = haversine(userLat, userLng, s.lat, s.lng);
+          if (dist <= maxDist) {
+            for (const r of (s.routes || [])) {
+              all.push({
+                kind: "nlb",
+                id: `${s.stopKey}-${r.routeId}`,
+                nameTc: `${s.name_tc || s.name_en}`,
+                nameEn: s.name_en || "",
+                lat: s.lat,
+                lng: s.lng,
+                dist,
+                nlb: {
+                  routeId: r.routeId,
+                  routeNo: r.routeNo,
+                  stopId: r.stopId,
+                  dest_tc: r.dest_tc,
+                  dest_en: r.dest_en,
                 },
               });
             }

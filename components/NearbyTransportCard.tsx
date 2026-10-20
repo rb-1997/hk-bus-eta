@@ -51,6 +51,13 @@ function KindBadge({ kind }: { kind: string }) {
       </span>
     );
   }
+  if (kind === "nlb") {
+    return (
+      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#0077b6] text-white shrink-0">
+        嶼巴
+      </span>
+    );
+  }
   return (
     <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-500 text-white shrink-0">
       巴士站
@@ -200,6 +207,36 @@ export function NearbyTransportCard({
           console.error("GMB fetch failed:", e);
         }
         return [];
+      } else if (item.kind === "nlb" && item.nlb) {
+        // Direct NLB fetch (official API, CORS *)
+        try {
+          const res = await fetch(
+            `https://rt.data.gov.hk/v2/transport/nlb/stop.php?action=estimatedArrivals&routeId=${item.nlb.routeId}&stopId=${item.nlb.stopId}&language=zh`
+          ).then((r) => r.json());
+          const list = res?.estimatedArrivals || [];
+          const now = Date.now();
+          return list
+            .filter((e: any) => e.estimatedArrivalTime)
+            .map((e: any, idx: number) => {
+              const t = new Date(String(e.estimatedArrivalTime).replace(" ", "T")).getTime();
+              return {
+                id: `nlb-${item.nlb!.routeId}-${item.nlb!.stopId}-${idx}`,
+                operator: "NLB" as const,
+                route: item.nlb!.routeNo,
+                destEn: item.nlb!.dest_en,
+                destTc: item.nlb!.dest_tc,
+                eta: e.estimatedArrivalTime,
+                etaMinutes: Math.max(0, Math.round((t - now) / 60000)),
+                remarkEn: e.routeVariantName || undefined,
+                remarkTc: e.routeVariantName || undefined,
+                sequence: idx + 1,
+                isRealtime: String(e.noGPS) === "1",
+              };
+            });
+        } catch (e) {
+          console.error("NLB fetch failed:", e);
+        }
+        return [];
       }
       return [];
     },
@@ -212,6 +249,10 @@ export function NearbyTransportCard({
 
   // Hide GMB cards with no ETAs (user doesn't want clutter)
   if (item.kind === "gmb" && !isLoading && (!etas || etas.length === 0)) {
+    return null;
+  }
+  // Hide NLB cards with no ETAs (sparse service, avoid clutter)
+  if (item.kind === "nlb" && !isLoading && (!etas || etas.length === 0)) {
     return null;
   }
 

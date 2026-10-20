@@ -35,7 +35,7 @@ import clsx from "clsx";
 
 // App name + version: bump patch version on every user-facing change
 export const APP_NAME = "CNE 交通資訊";
-export const APP_VERSION = "1.1.6";
+export const APP_VERSION = "1.1.7";
 
 export function OperatorBadge({ operator }: { operator: string }) {
   const src =
@@ -64,6 +64,13 @@ export function OperatorBadge({ operator }: { operator: string }) {
     return (
       <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#8e44ad] text-white shrink-0">
         鐵路
+      </span>
+    );
+  }
+  if (operator === "NLB") {
+    return (
+      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#0077b6] text-white shrink-0">
+        嶼巴
       </span>
     );
   }
@@ -206,6 +213,7 @@ function LiteRouteStopRow({
   kmbStopId,
   ctbStopId,
   mtrMeta,
+  nlbMeta,
   isHeart,
   onToggleHeart,
 }: {
@@ -217,6 +225,7 @@ function LiteRouteStopRow({
   kmbStopId?: string;
   ctbStopId?: string;
   mtrMeta?: { routeName: string; stopId: string };
+  nlbMeta?: { routeId: number; stopId: number };
   isHeart?: (route: BusRoute, seq: number) => boolean;
   onToggleHeart?: (route: BusRoute, seq: number, nameTc?: string, nameEn?: string) => void;
 }) {
@@ -229,7 +238,9 @@ function LiteRouteStopRow({
           ? (["lite-eta-ctb", ctbStopId, route.route] as const)
           : route.operator === "MTR" && mtrMeta
             ? (["lite-eta-mtr", mtrMeta.routeName, mtrMeta.stopId] as const)
-            : null,
+            : route.operator === "NLB" && nlbMeta
+              ? (["lite-eta-nlb", nlbMeta.routeId, nlbMeta.stopId] as const)
+              : null,
     async (key: readonly [string, ...unknown[]]) => {
       const { getETAs } = await import("@/utils/static-api");
       if (key[0] === "lite-eta-gmb" && gmbMeta) {
@@ -249,6 +260,17 @@ function LiteRouteStopRow({
         return all.filter((e) => e.route === route.route).slice(0, 3);
       } else if (key[0] === "lite-eta-ctb" && ctbStopId) {
         return getETAs({ operator: "CTB", originalId: ctbStopId, routes: route.route });
+      } else if (key[0] === "lite-eta-nlb" && nlbMeta) {
+        return getETAs({
+          operator: "NLB",
+          nlb: {
+            routeId: nlbMeta.routeId,
+            stopId: nlbMeta.stopId,
+            routeNo: route.route,
+            dest_tc: route.destTc,
+            dest_en: route.destEn,
+          },
+        });
       } else if (key[0] === "lite-eta-mtr" && mtrMeta) {
         return getETAs({
           operator: "MTR",
@@ -371,6 +393,10 @@ function LiteRouteStopsList({
               route.operator === "MTR"
                 ? { routeName: route.route, stopId: ss.stop }
                 : undefined,
+            nlbMeta:
+              route.operator === "NLB" && route.nlb
+                ? { routeId: route.nlb.routeId, stopId: Number(ss.stop) }
+                : undefined,
           };
         }
         const found = byOrig.get(ss.stop);
@@ -382,6 +408,7 @@ function LiteRouteStopsList({
           kmbStopId: route.operator === "KMB" ? ss.stop : undefined,
           ctbStopId: route.operator === "CTB" ? ss.stop : undefined,
           mtrMeta: undefined,
+          nlbMeta: undefined,
         };
       });
   }, [stopSeqs, stops, route]);
@@ -415,6 +442,7 @@ function LiteRouteStopsList({
               kmbStopId={s.kmbStopId}
               ctbStopId={s.ctbStopId}
               mtrMeta={s.mtrMeta}
+              nlbMeta={s.nlbMeta}
               isHeart={isHeart}
               onToggleHeart={onToggleHeart}
             />
@@ -631,9 +659,10 @@ export default function LiteApp() {
         : (selectedRoute?.operator ?? null);
   const { stopSeqs, isLoading: stopsListLoading } = useRouteStops(
     selectedRoute?.route || null,
-    operatorForApi,
+    operatorForApi as any,
     selectedRoute?.operator === "CTB" ? ctbBound : selectedRoute?.bound || "O",
-    selectedRoute?.gmb
+    selectedRoute?.gmb,
+    selectedRoute?.nlb
   );
 
   // Sync CTB direction toggle when a different route is selected:
@@ -664,6 +693,7 @@ export default function LiteApp() {
       directionLabel: fr.directionLabel,
       bound: fr.bound,
       gmb: fr.gmb,
+      nlb: fr.nlb,
     });
     setTab("routes");
   };
@@ -891,6 +921,7 @@ export default function LiteApp() {
               { id: "CTB", label: "城巴", logo: "logos/ctb.svg" },
               { id: "MTR", label: "港鐵巴士", logo: "logos/mtr.svg" },
               { id: "GMB", label: "小巴", logo: "logos/gmb.svg" },
+              { id: "NLB", label: "嶼巴", logo: null },
               { id: "MTRT", label: "鐵路", logo: null },
               { id: "LRT", label: "輕鐵", logo: "logos/lrt.svg" },
             ] as const
@@ -919,6 +950,8 @@ export default function LiteApp() {
               >
                 {o.id === "MTRT" ? (
                   <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#8e44ad] text-white">鐵路</span>
+                ) : o.id === "NLB" ? (
+                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#0077b6] text-white">嶼巴</span>
                 ) : o.logo ? (
                   <img src={o.logo} alt={o.label} className="h-[20px] w-auto rounded" />
                 ) : null}
@@ -1026,7 +1059,7 @@ export default function LiteApp() {
 
             {operatorFilter !== "ALL" && hasLocation && (
               <div className="text-center text-[13px] text-[#8B6F47] py-1">
-                而家只顯示「{ { KMB: "九巴", CTB: "城巴", MTR: "港鐵巴士", GMB: "小巴", MTRT: "鐵路", LRT: "輕鐵" }[operatorFilter] || operatorFilter }」，撳「全部」睇返晒
+                而家只顯示「{ { KMB: "九巴", CTB: "城巴", MTR: "港鐵巴士", GMB: "小巴", NLB: "嶼巴", MTRT: "鐵路", LRT: "輕鐵" }[operatorFilter] || operatorFilter }」，撳「全部」睇返晒
               </div>
             )}
             {nearby
@@ -1035,6 +1068,7 @@ export default function LiteApp() {
                 if (operatorFilter === "MTRT") return item.kind === "mtr";
                 if (operatorFilter === "LRT") return item.kind === "lrt";
                 if (operatorFilter === "GMB") return item.kind === "gmb" || item.kind === "bus";
+                if (operatorFilter === "NLB") return item.kind === "nlb";
                 return item.kind === "bus"; // KMB / CTB / MTR Bus live on bus cards
               })
               .map((item, i) => (

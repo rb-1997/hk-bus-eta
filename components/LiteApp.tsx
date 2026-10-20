@@ -35,7 +35,7 @@ import clsx from "clsx";
 
 // App name + version: bump patch version on every user-facing change
 export const APP_NAME = "CNE 交通資訊";
-export const APP_VERSION = "1.1.9";
+export const APP_VERSION = "1.1.10";
 
 export function OperatorBadge({ operator }: { operator: string }) {
   const src =
@@ -915,7 +915,7 @@ export default function LiteApp() {
   const favCount = favorites.length + favRoutes.length + hearts.length;
 
   return (
-    <main className="h-[100dvh] w-full flex flex-col bg-[#FFFBF7] overflow-hidden" style={{ zoom: fontScale } as any}>
+    <main className="h-[100dvh] w-full flex flex-col bg-[#FFFBF7] overflow-hidden">
       {/* header - Japanese style */}
       <header className="shrink-0 sticky top-0 z-20 bg-[#FFFBF7] border-b border-[#F5E6D3] px-4 pt-3 pb-2.5">
         {/* Title row */}
@@ -1128,8 +1128,10 @@ export default function LiteApp() {
       </header>
 
       {/* body */}
-      <div className="flex-1 overflow-y-auto overscroll-contain px-3 py-3 space-y-3">
-        {tab === "nearby" && (
+      <div className="flex-1 overflow-y-auto overscroll-contain px-3 py-3">
+        <div className="space-y-3" style={{ zoom: fontScale } as any}>
+        {showHelp && <HelpView />}
+        {!showHelp && tab === "nearby" && (
           <>
             {/* Distance slider */}
             {!showLocatePrompt && (
@@ -1225,7 +1227,7 @@ export default function LiteApp() {
           </>
         )}
 
-        {tab === "routes" && (
+        {!showHelp && tab === "routes" && (
           <>
             {!routeQuery && !selectedRoute && !heartFocus && (
               <div className="bg-white rounded-2xl p-6 text-center text-[15px] text-slate-500">
@@ -1235,9 +1237,7 @@ export default function LiteApp() {
               </div>
             )}
 
-            {showHelp ? (
-              <HelpView />
-            ) : heartFocus ? (
+            {heartFocus ? (
               <HeartFocusView heart={heartFocus} onBack={() => setHeartFocus(null)} />
             ) : selectedRoute ? (
               <div>
@@ -1405,7 +1405,7 @@ export default function LiteApp() {
           </>
         )}
 
-        {tab === "favorites" && (
+        {!showHelp && tab === "favorites" && (
           <>
             <div className="flex p-1 bg-white rounded-2xl border border-slate-100">
               {(["hearts", "routes", "stops"] as const).map((t) => (
@@ -1553,6 +1553,7 @@ export default function LiteApp() {
             )}
           </>
         )}
+        </div>
       </div>
 
       {/* footer: link to map version */}

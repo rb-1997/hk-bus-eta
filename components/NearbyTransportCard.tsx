@@ -284,8 +284,18 @@ export function NearbyTransportCard({
           : e.operator === operatorFilter
       )
     : etas || [];
-  // Hide the whole card when a filter is on and this stop has none of that operator
-  if (operatorFilter && !isLoading && etas && filteredEtas.length === 0) {
+  // Hide the whole card when a filter is on and this stop has none of that operator.
+  // EXCEPTION: MTR/LRT station cards ARE the operator — with no service (e.g.
+  // after last train) the station must still appear showing 暫無班次， so the
+  // user can see the station is nearby (RB3 at Sam Shing, 2026-10-21).
+  if (
+    operatorFilter &&
+    !isLoading &&
+    etas &&
+    filteredEtas.length === 0 &&
+    item.kind !== "mtr" &&
+    item.kind !== "lrt"
+  ) {
     return null;
   }
 

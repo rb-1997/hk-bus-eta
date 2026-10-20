@@ -238,7 +238,7 @@ export function useNearbyTransport(
     return () => {
       cancelled = true;
     };
-  }, [userLat, userLng, busStops]);
+  }, [userLat, userLng, busStops, maxDist]);
 
   return items;
 }

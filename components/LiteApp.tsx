@@ -35,7 +35,7 @@ import clsx from "clsx";
 
 // App name + version: bump patch version on every user-facing change
 export const APP_NAME = "CNE 交通資訊";
-export const APP_VERSION = "1.1.11";
+export const APP_VERSION = "1.1.12";
 
 export function OperatorBadge({ operator }: { operator: string }) {
   const src =
@@ -662,7 +662,7 @@ function HelpView() {
       </div>
 
       <HelpSection title="一、附近偵測">
-        <p>打開 App 撳「📍 定位」，App 會以你嘅位置為中心，偵測你預設範圍內（預設 800 米）嘅任何香港交通工具，包括巴士（九巴、城巴、龍運、港鐵巴士）、綠色小巴、大嶼山巴士、港鐵、輕鐵同渡輪（新渡輪、港九小輪、天星小輪），按距離由近至遠排列，每張卡顯示即時班次，每 10 秒自動更新。冇班次嘅站會自動收起，唔會阻住你。</p>
+        <p>打開 App 撳「📍 定位」，App 會以你嘅位置為中心，偵測你預設範圍內（預設 800 米）嘅任何香港交通工具，包括巴士（九巴、城巴、龍運、港鐵巴士）、綠色小巴、大嶼山巴士、港鐵、輕鐵同渡輪（新渡輪、港九小輪、天星小輪），按距離由近至遠排列，每張卡顯示即時班次，每 10 秒自動更新。港鐵、輕鐵站就算收咗車冇班次，張卡都會照顯示（寫明暫無班次），等你知個站喺附近；小巴、嶼巴、渡輪冇班次嗰陣會自動收起，唔會阻住你。</p>
       </HelpSection>
 
       <div className="bg-amber-50 rounded-2xl border border-amber-200 shadow-sm px-4 py-3.5">
@@ -1190,7 +1190,7 @@ export default function LiteApp() {
             {hasLocation && !stopsLoading && nearby.length === 0 && (
               <div className="bg-white rounded-2xl p-6 text-center">
                 <p className="text-[15px] text-slate-500">
-                  800 米內冇車站紀錄
+                  {searchRadius} 米內冇車站紀錄
                   <br />
                   試下用上面搜尋路線
                 </p>

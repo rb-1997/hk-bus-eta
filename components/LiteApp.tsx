@@ -581,6 +581,11 @@ export default function LiteApp() {
   const [favTab, setFavTab] = useState<"hearts" | "routes" | "stops">("hearts");
   const [routeQuery, setRouteQuery] = useState("");
   const [searchRadius, setSearchRadius] = useState(800); // meters
+  const [operatorFilter, setOperatorFilter] = useState<string>(() => {
+    try {
+      return localStorage.getItem("hk-bus-eta-op-filter") || "ALL";
+    } catch { return "ALL"; }
+  });
   const [fontScale, setFontScale] = useState(() => {
     try {
       return Number(localStorage.getItem("hk-bus-eta-font-scale")) || 1;
@@ -877,6 +882,49 @@ export default function LiteApp() {
           )}
         </div>
 
+        {/* Operator filter - logo buttons */}
+        <div className="flex items-center gap-1.5 mt-2.5 overflow-x-auto pb-0.5">
+          {(
+            [
+              { id: "ALL", label: "全部", logo: null },
+              { id: "KMB", label: "九巴", logo: "logos/kmb.svg" },
+              { id: "CTB", label: "城巴", logo: "logos/ctb.svg" },
+              { id: "MTR", label: "港鐵巴士", logo: "logos/mtr.svg" },
+              { id: "GMB", label: "小巴", logo: "logos/gmb.svg" },
+              { id: "MTRT", label: "鐵路", logo: null },
+              { id: "LRT", label: "輕鐵", logo: "logos/lrt.svg" },
+            ] as const
+          ).map((o) => {
+            const active = operatorFilter === o.id;
+            return (
+              <button
+                key={o.id}
+                onClick={() => {
+                  setOperatorFilter(o.id);
+                  try { localStorage.setItem("hk-bus-eta-op-filter", o.id); } catch {}
+                }}
+                className={clsx(
+                  "flex items-center gap-1.5 px-3 h-10 rounded-full border shrink-0 active:scale-95 transition-all",
+                  active
+                    ? "bg-white border-green-500 ring-2 ring-green-200 shadow-md"
+                    : "bg-white/70 border-[#F5E6D3] opacity-60"
+                )}
+                aria-label={`只睇${o.label}`}
+                aria-pressed={active}
+              >
+                {o.id === "MTRT" ? (
+                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#8e44ad] text-white">鐵路</span>
+                ) : o.logo ? (
+                  <img src={o.logo} alt={o.label} className="h-[20px] w-auto rounded" />
+                ) : null}
+                <span className={clsx("text-[13px] font-medium whitespace-nowrap", active ? "text-green-700" : "text-slate-500")}>
+                  {o.label}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
         {/* tabs - Japanese style */}
         <div className="flex p-1.5 bg-[#FFF5E6] border border-[#F5E6D3] rounded-full mt-2.5 shadow-sm">
           {(
@@ -971,17 +1019,31 @@ export default function LiteApp() {
               </div>
             )}
 
-            {nearby.map((item, i) => (
-              <NearbyTransportCard
-                key={item.id}
-                item={item}
-                defaultExpanded={i === 0}
-                onTapRoute={handleTapEtaRoute}
-                onViewStation={handleViewStation}
-                isFavorite={isFavorite}
-                toggleFavorite={toggleFavorite}
-              />
-            ))}
+            {operatorFilter !== "ALL" && hasLocation && (
+              <div className="text-center text-[13px] text-[#8B6F47] py-1">
+                而家只顯示「{ { KMB: "九巴", CTB: "城巴", MTR: "港鐵巴士", GMB: "小巴", MTRT: "鐵路", LRT: "輕鐵" }[operatorFilter] || operatorFilter }」，撳「全部」睇返晒
+              </div>
+            )}
+            {nearby
+              .filter((item) => {
+                if (operatorFilter === "ALL") return true;
+                if (operatorFilter === "MTRT") return item.kind === "mtr";
+                if (operatorFilter === "LRT") return item.kind === "lrt";
+                if (operatorFilter === "GMB") return item.kind === "gmb" || item.kind === "bus";
+                return item.kind === "bus"; // KMB / CTB / MTR Bus live on bus cards
+              })
+              .map((item, i) => (
+                <NearbyTransportCard
+                  key={item.id}
+                  item={item}
+                  defaultExpanded={i === 0}
+                  onTapRoute={handleTapEtaRoute}
+                  onViewStation={handleViewStation}
+                  isFavorite={isFavorite}
+                  toggleFavorite={toggleFavorite}
+                  operatorFilter={operatorFilter === "ALL" ? undefined : operatorFilter}
+                />
+              ))}
           </>
         )}
 

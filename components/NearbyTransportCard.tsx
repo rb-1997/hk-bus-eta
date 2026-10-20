@@ -69,6 +69,7 @@ export function NearbyTransportCard({
   onViewStation,
   isFavorite,
   toggleFavorite,
+  operatorFilter,
 }: {
   item: NearbyTransport;
   defaultExpanded: boolean;
@@ -76,6 +77,7 @@ export function NearbyTransportCard({
   onViewStation?: (item: NearbyTransport) => void;
   isFavorite?: (id: string) => boolean;
   toggleFavorite?: (stop: any) => void;
+  operatorFilter?: string;
 }) {
   const [expanded, setExpanded] = useState(defaultExpanded);
 
@@ -213,7 +215,16 @@ export function NearbyTransportCard({
     return null;
   }
 
-  const shown = expanded ? (etas || []) : (etas || []).slice(0, 4);
+  // Operator filter: only show ETAs from the chosen operator
+  const filteredEtas = operatorFilter
+    ? (etas || []).filter((e: any) => e.operator === operatorFilter)
+    : etas || [];
+  // Hide the whole card when a filter is on and this stop has none of that operator
+  if (operatorFilter && !isLoading && etas && filteredEtas.length === 0) {
+    return null;
+  }
+
+  const shown = expanded ? filteredEtas : filteredEtas.slice(0, 4);
   const distText =
     item.dist < 1000 ? `${Math.round(item.dist)}m` : `${(item.dist / 1000).toFixed(1)}km`;
 
@@ -311,9 +322,9 @@ export function NearbyTransportCard({
                 </span>
               </button>
             ))}
-            {!expanded && (etas || []).length > 4 && (
+            {!expanded && filteredEtas.length > 4 && (
               <div className="text-[12px] text-slate-400 text-center pt-1">
-                仲有 {(etas || []).length - 4} 班…撳入去睇晒
+                仲有 {filteredEtas.length - 4} 班…撳入去睇晒
               </div>
             )}
           </div>

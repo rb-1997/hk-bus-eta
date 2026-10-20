@@ -204,7 +204,7 @@ export function HeartListItem({
   );
 
   return (
-    <div className="bg-white rounded-2xl border border-green-100 shadow-sm px-4 py-3">
+    <div className="bg-white rounded-2xl border border-green-100 shadow-sm px-4 py-3 overflow-hidden">
       <div className="flex items-start gap-2">
         {editOrder && (
           <div className="flex flex-col gap-1 shrink-0">
@@ -231,7 +231,7 @@ export function HeartListItem({
           onClick={() => !editOrder && onTap()}
           className="flex-1 min-w-0 text-left"
         >
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 overflow-hidden">
             <Heart className="w-5 h-5 text-green-600 fill-green-600 shrink-0" />
             <OperatorBadge operator={heart.operator} />
             <span className="font-bold text-slate-900 text-[16px] shrink-0">{heart.route}</span>
@@ -244,14 +244,14 @@ export function HeartListItem({
             {heart.directionLabel && ` · ${heart.directionLabel}`}
           </div>
         </button>
-        {/* RIGHT: times, right-aligned */}
+        {/* RIGHT: times, right-aligned (short ETA strings only — the long
+            timetable note lives in its own full-width row below so it can
+            never squeeze the title row and overlap) */}
         {!editOrder && (
           <div className="shrink-0 text-right pt-0.5">
             {isLoading ? (
               <div className="text-[13px] text-slate-400">載入中…</div>
-            ) : !etas || etas.length === 0 ? (
-              <TimetableNote heart={heart} alignRight />
-            ) : (
+            ) : !etas || etas.length === 0 ? null : (
               <div className="flex flex-col items-end gap-0.5">
                 {etas.slice(0, 3).map((e, i) => {
                   const urgent = e.etaMinutes !== null && e.etaMinutes <= 3 && e.etaMinutes >= 0;
@@ -298,6 +298,13 @@ export function HeartListItem({
           </button>
         )}
       </div>
+      {/* No live ETA (e.g. service ended): timetable note gets its own
+          full-width row so long text wraps instead of overlapping */}
+      {!editOrder && !isLoading && (!etas || etas.length === 0) && (
+        <div className="mt-1.5 ml-7">
+          <TimetableNote heart={heart} />
+        </div>
+      )}
     </div>
   );
 }

@@ -1,4 +1,4 @@
-export type Operator = "KMB" | "CTB" | "LWB" | "GMB" | "MTR" | "MTRT" | "LRT" | "NLB";
+export type Operator = "KMB" | "CTB" | "LWB" | "GMB" | "MTR" | "MTRT" | "LRT" | "NLB" | "SUNFERRY" | "HKKF" | "STARFERRY";
 
 export interface BusStop {
   id: string; // unified or original
@@ -19,6 +19,16 @@ export interface BusStop {
     dest_tc: string;
     dest_en: string;
   };
+}
+
+
+export interface FerryMeta {
+  company: "SUN" | "HKKF" | "STAR";
+  code: string; // SUN: route code (CECC); HKKF: route id ("2"); STAR: direction code (CT)
+  dir?: string; // HKKF: "outbound" | "inbound"
+  starDir?: string; // STAR: timetable direction string
+  fromPier: string;
+  toPier: string;
 }
 
 export interface BusRoute {
@@ -61,6 +71,8 @@ export interface BusRoute {
   nlb?: {
     routeId: number;
   };
+  // For ferries (Sun Ferry / HKKF / Star Ferry)
+  ferry?: FerryMeta;
 }
 
 // A stop in a route's stop sequence. KMB/CTB resolve coords via the global
@@ -140,6 +152,7 @@ export interface FavoriteRoute {
   nlb?: {
     routeId: number;
   };
+  ferry?: FerryMeta;
   savedAt: number;
 }
 
@@ -179,6 +192,7 @@ export interface FavoriteRouteStop {
   nlb?: {
     routeId: number;
   };
+  ferry?: FerryMeta;
   savedAt: number;
 }
 

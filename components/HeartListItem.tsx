@@ -154,6 +154,20 @@ export function HeartListItem({
           },
         } as any);
       }
+      // For ferries: shared ETA helper (pierSeq 2 = reverse direction)
+      if (heart.ferry) {
+        return getETAs({
+          operator: heart.operator as any,
+          ferry: {
+            ...heart.ferry,
+            dest_tc: heart.destTc,
+            dest_en: heart.destEn,
+            from_tc: heart.originTc,
+            from_en: heart.originEn,
+            pierSeq: heart.stopSeq,
+          },
+        } as any);
+      }
       // For NLB: routeId + stopSeq (= NLB stopId) drive the ETA call
       if (heart.operator === "NLB" && heart.nlb) {
         return getETAs({

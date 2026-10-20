@@ -51,6 +51,13 @@ function KindBadge({ kind }: { kind: string }) {
       </span>
     );
   }
+  if (kind === "ferry") {
+    return (
+      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-sky-600 text-white shrink-0">
+        渡輪
+      </span>
+    );
+  }
   if (kind === "nlb") {
     return (
       <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#0077b6] text-white shrink-0">
@@ -237,6 +244,15 @@ export function NearbyTransportCard({
           console.error("NLB fetch failed:", e);
         }
         return [];
+      } else if (item.kind === "ferry" && item.ferry) {
+        // Ferry ETAs via shared helper (Sun/HKKF live APIs, Star frequency table)
+        try {
+          const { getFerryETAs } = await import("@/utils/static-api");
+          return getFerryETAs(item.ferry);
+        } catch (e) {
+          console.error("Ferry fetch failed:", e);
+        }
+        return [];
       }
       return [];
     },
@@ -255,10 +271,18 @@ export function NearbyTransportCard({
   if (item.kind === "nlb" && !isLoading && (!etas || etas.length === 0)) {
     return null;
   }
+  // Hide ferry cards with no upcoming sailing
+  if (item.kind === "ferry" && !isLoading && (!etas || etas.length === 0)) {
+    return null;
+  }
 
   // Operator filter: only show ETAs from the chosen operator
   const filteredEtas = operatorFilter
-    ? (etas || []).filter((e: any) => e.operator === operatorFilter)
+    ? (etas || []).filter((e: any) =>
+        operatorFilter === "FERRY"
+          ? ["SUNFERRY", "HKKF", "STARFERRY"].includes(e.operator)
+          : e.operator === operatorFilter
+      )
     : etas || [];
   // Hide the whole card when a filter is on and this stop has none of that operator
   if (operatorFilter && !isLoading && etas && filteredEtas.length === 0) {

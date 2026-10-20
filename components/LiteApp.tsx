@@ -35,7 +35,7 @@ import clsx from "clsx";
 
 // App name + version: bump patch version on every user-facing change
 export const APP_NAME = "CNE 交通資訊";
-export const APP_VERSION = "1.1.7";
+export const APP_VERSION = "1.1.8";
 
 export function OperatorBadge({ operator }: { operator: string }) {
   const src =
@@ -71,6 +71,27 @@ export function OperatorBadge({ operator }: { operator: string }) {
     return (
       <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#0077b6] text-white shrink-0">
         嶼巴
+      </span>
+    );
+  }
+  if (operator === "SUNFERRY") {
+    return (
+      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#0057a8] text-white shrink-0">
+        新渡輪
+      </span>
+    );
+  }
+  if (operator === "HKKF") {
+    return (
+      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#00838f] text-white shrink-0">
+        港九小輪
+      </span>
+    );
+  }
+  if (operator === "STARFERRY") {
+    return (
+      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#00703c] text-white shrink-0">
+        天星小輪
       </span>
     );
   }
@@ -214,6 +235,7 @@ function LiteRouteStopRow({
   ctbStopId,
   mtrMeta,
   nlbMeta,
+  ferryMeta,
   isHeart,
   onToggleHeart,
 }: {
@@ -226,6 +248,7 @@ function LiteRouteStopRow({
   ctbStopId?: string;
   mtrMeta?: { routeName: string; stopId: string };
   nlbMeta?: { routeId: number; stopId: number };
+  ferryMeta?: import("@/types/bus").FerryMeta;
   isHeart?: (route: BusRoute, seq: number) => boolean;
   onToggleHeart?: (route: BusRoute, seq: number, nameTc?: string, nameEn?: string) => void;
 }) {
@@ -240,7 +263,9 @@ function LiteRouteStopRow({
             ? (["lite-eta-mtr", mtrMeta.routeName, mtrMeta.stopId] as const)
             : route.operator === "NLB" && nlbMeta
               ? (["lite-eta-nlb", nlbMeta.routeId, nlbMeta.stopId] as const)
-              : null,
+              : ferryMeta && seq === 1
+                ? (["lite-eta-ferry", ferryMeta.company, ferryMeta.code, ferryMeta.dir || ferryMeta.starDir || ""] as const)
+                : null,
     async (key: readonly [string, ...unknown[]]) => {
       const { getETAs } = await import("@/utils/static-api");
       if (key[0] === "lite-eta-gmb" && gmbMeta) {
@@ -260,6 +285,17 @@ function LiteRouteStopRow({
         return all.filter((e) => e.route === route.route).slice(0, 3);
       } else if (key[0] === "lite-eta-ctb" && ctbStopId) {
         return getETAs({ operator: "CTB", originalId: ctbStopId, routes: route.route });
+      } else if (key[0] === "lite-eta-ferry" && ferryMeta) {
+        return getETAs({
+          operator: route.operator as any,
+          ferry: {
+            ...ferryMeta,
+            dest_tc: route.destTc,
+            dest_en: route.destEn,
+            from_tc: route.originTc,
+            from_en: route.originEn,
+          },
+        });
       } else if (key[0] === "lite-eta-nlb" && nlbMeta) {
         return getETAs({
           operator: "NLB",
@@ -397,6 +433,7 @@ function LiteRouteStopsList({
               route.operator === "NLB" && route.nlb
                 ? { routeId: route.nlb.routeId, stopId: Number(ss.stop) }
                 : undefined,
+            ferryMeta: route.ferry,
           };
         }
         const found = byOrig.get(ss.stop);
@@ -409,6 +446,7 @@ function LiteRouteStopsList({
           ctbStopId: route.operator === "CTB" ? ss.stop : undefined,
           mtrMeta: undefined,
           nlbMeta: undefined,
+          ferryMeta: undefined,
         };
       });
   }, [stopSeqs, stops, route]);
@@ -443,6 +481,7 @@ function LiteRouteStopsList({
               ctbStopId={s.ctbStopId}
               mtrMeta={s.mtrMeta}
               nlbMeta={s.nlbMeta}
+              ferryMeta={s.ferryMeta}
               isHeart={isHeart}
               onToggleHeart={onToggleHeart}
             />
@@ -662,7 +701,8 @@ export default function LiteApp() {
     operatorForApi as any,
     selectedRoute?.operator === "CTB" ? ctbBound : selectedRoute?.bound || "O",
     selectedRoute?.gmb,
-    selectedRoute?.nlb
+    selectedRoute?.nlb,
+    selectedRoute?.ferry
   );
 
   // Sync CTB direction toggle when a different route is selected:
@@ -694,6 +734,7 @@ export default function LiteApp() {
       bound: fr.bound,
       gmb: fr.gmb,
       nlb: fr.nlb,
+      ferry: fr.ferry,
     });
     setTab("routes");
   };
@@ -912,8 +953,8 @@ export default function LiteApp() {
           )}
         </div>
 
-        {/* Operator filter - logo buttons */}
-        <div className="flex items-center gap-1.5 mt-2.5 overflow-x-auto pb-0.5">
+        {/* Operator filter - logo buttons, two rows, no scrolling */}
+        <div className="flex flex-wrap gap-1.5 mt-2.5">
           {(
             [
               { id: "ALL", label: "全部", logo: null },
@@ -924,6 +965,7 @@ export default function LiteApp() {
               { id: "NLB", label: "嶼巴", logo: null },
               { id: "MTRT", label: "鐵路", logo: null },
               { id: "LRT", label: "輕鐵", logo: "logos/lrt.svg" },
+              { id: "FERRY", label: "渡輪", logo: null },
             ] as const
           ).map((o) => {
             const active = operatorFilter === o.id;
@@ -940,7 +982,7 @@ export default function LiteApp() {
                   setTab("nearby");
                 }}
                 className={clsx(
-                  "flex items-center gap-1.5 px-3 h-10 rounded-full border shrink-0 active:scale-95 transition-all",
+                  "flex flex-col items-center justify-center w-[66px] py-1.5 rounded-2xl border active:scale-95 transition-all",
                   active
                     ? "bg-white border-green-500 ring-2 ring-green-200 shadow-md"
                     : "bg-white/70 border-[#F5E6D3] opacity-60"
@@ -948,14 +990,20 @@ export default function LiteApp() {
                 aria-label={`只睇${o.label}`}
                 aria-pressed={active}
               >
-                {o.id === "MTRT" ? (
-                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#8e44ad] text-white">鐵路</span>
-                ) : o.id === "NLB" ? (
-                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#0077b6] text-white">嶼巴</span>
-                ) : o.logo ? (
-                  <img src={o.logo} alt={o.label} className="h-[20px] w-auto rounded" />
-                ) : null}
-                <span className={clsx("text-[13px] font-medium whitespace-nowrap", active ? "text-green-700" : "text-slate-500")}>
+                <span className="h-[20px] flex items-center justify-center">
+                  {o.id === "ALL" ? (
+                    <span className="text-[14px] font-bold text-slate-600">ALL</span>
+                  ) : o.id === "MTRT" ? (
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#8e44ad] text-white">鐵路</span>
+                  ) : o.id === "NLB" ? (
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#0077b6] text-white">嶼巴</span>
+                  ) : o.id === "FERRY" ? (
+                    <span className="text-[17px] leading-none">⛴️</span>
+                  ) : o.logo ? (
+                    <img src={o.logo} alt={o.label} className="h-[20px] w-auto rounded" />
+                  ) : null}
+                </span>
+                <span className={clsx("text-[11px] font-medium whitespace-nowrap mt-0.5", active ? "text-green-700" : "text-slate-500")}>
                   {o.label}
                 </span>
               </button>
@@ -1059,7 +1107,7 @@ export default function LiteApp() {
 
             {operatorFilter !== "ALL" && hasLocation && (
               <div className="text-center text-[13px] text-[#8B6F47] py-1">
-                而家只顯示「{ { KMB: "九巴", CTB: "城巴", MTR: "港鐵巴士", GMB: "小巴", NLB: "嶼巴", MTRT: "鐵路", LRT: "輕鐵" }[operatorFilter] || operatorFilter }」，撳「全部」睇返晒
+                而家只顯示「{ { KMB: "九巴", CTB: "城巴", MTR: "港鐵巴士", GMB: "小巴", NLB: "嶼巴", FERRY: "渡輪", MTRT: "鐵路", LRT: "輕鐵" }[operatorFilter] || operatorFilter }」，撳「全部」睇返晒
               </div>
             )}
             {nearby
@@ -1069,6 +1117,7 @@ export default function LiteApp() {
                 if (operatorFilter === "LRT") return item.kind === "lrt";
                 if (operatorFilter === "GMB") return item.kind === "gmb" || item.kind === "bus";
                 if (operatorFilter === "NLB") return item.kind === "nlb";
+                if (operatorFilter === "FERRY") return item.kind === "ferry";
                 return item.kind === "bus"; // KMB / CTB / MTR Bus live on bus cards
               })
               .map((item, i) => (

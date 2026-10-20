@@ -23,6 +23,23 @@ let gmbIndexCache: any[] | null = null;
 let mtrIndexCache: any[] | null = null;
 let mtrTrainCache: any | null = null;
 let nlbRoutesCache: any[] | null = null;
+let ferryRoutesCache: any[] | null = null;
+let ferryPiersCache: any[] | null = null;
+let starTtCache: any | null = null;
+let holidaysCache: string[] | null = null;
+
+async function loadFerryRoutes(): Promise<any[]> {
+  if (!ferryRoutesCache) {
+    ferryRoutesCache = await plainFetch("ferry/routes.json").catch(() => []);
+  }
+  return ferryRoutesCache || [];
+}
+async function loadFerryPiers(): Promise<any[]> {
+  if (!ferryPiersCache) {
+    ferryPiersCache = await plainFetch("ferry/piers.json").catch(() => []);
+  }
+  return ferryPiersCache || [];
+}
 let lrtCache: any | null = null;
 const STOPS_TTL = 24 * 3600 * 1000;
 const ROUTES_TTL = 24 * 3600 * 1000;
@@ -311,6 +328,47 @@ export async function searchRoutes(query: string): Promise<BusRoute[]> {
     /* MTR index optional */
   }
 
+  // Ferries (Sun Ferry / HKKF / Star Ferry; bundled index, live ETA APIs)
+  try {
+    const ferryRoutes = await loadFerryRoutes();
+    for (const fr of ferryRoutes) {
+      const op =
+        fr.company === "SUN" ? "SUNFERRY" : fr.company === "HKKF" ? "HKKF" : "STARFERRY";
+      if (
+        q &&
+        String(fr.code).toUpperCase() !== q &&
+        !(fr.destTc || "").includes(query.trim()) &&
+        !(fr.fromTc || "").includes(query.trim()) &&
+        !(fr.destEn || "").toUpperCase().includes(q) &&
+        !(fr.fromEn || "").toUpperCase().includes(q) &&
+        !"渡輪".includes(query.trim()) &&
+        !"碼頭".includes(query.trim())
+      ) {
+        continue;
+      }
+      routes.push({
+        id: `${op}-${fr.key}`,
+        operator: op as any,
+        route: `${fr.fromTc} → ${fr.destTc}`,
+        originEn: fr.fromEn || "",
+        originTc: fr.fromTc || "",
+        destEn: fr.destEn || "",
+        destTc: fr.destTc || "",
+        directionLabel: `往 ${fr.destTc}`,
+        ferry: {
+          company: fr.company,
+          code: fr.code,
+          dir: fr.dir,
+          starDir: fr.starDir,
+          fromPier: fr.fromPier,
+          toPier: fr.toPier,
+        },
+      });
+    }
+  } catch {
+    /* ferry index optional */
+  }
+
   // New Lantao Bus (bundled route index; stops/ETA live from official API)
   try {
     if (!nlbRoutesCache) {
@@ -493,11 +551,26 @@ export async function searchRoutes(query: string): Promise<BusRoute[]> {
 
 export async function getRouteStops(
   route: string,
-  operator: "KMB" | "CTB" | "LWB" | "GMB" | "MTR" | "NLB" | null,
+  operator: "KMB" | "CTB" | "LWB" | "GMB" | "MTR" | "NLB" | "SUNFERRY" | "HKKF" | "STARFERRY" | null,
   bound: string = "O",
   gmbMeta?: { region: string; code: string; route_id: number; route_seq: number },
-  nlbMeta?: { routeId: number }
+  nlbMeta?: { routeId: number },
+  ferryMeta?: import("@/types/bus").FerryMeta
 ): Promise<RouteStopSeq[]> {
+  // Ferries: a route is pier -> pier (2 stops), from the bundled pier index
+  if (ferryMeta) {
+    const piers = await loadFerryPiers();
+    const from = piers.find((p: any) => p.id === ferryMeta.fromPier);
+    const to = piers.find((p: any) => p.id === ferryMeta.toPier);
+    const out: RouteStopSeq[] = [];
+    if (from) {
+      out.push({ stop: from.id, seq: 1, lat: from.lat, lng: from.lng, name_tc: from.nameTc, name_en: from.nameEn });
+    }
+    if (to) {
+      out.push({ stop: to.id, seq: 2, lat: to.lat, lng: to.lng, name_tc: to.nameTc, name_en: to.nameEn });
+    }
+    return out;
+  }
   // New Lantao Bus: live from official API (routeId identifies the direction)
   if (operator === "NLB" && nlbMeta) {
     try {
@@ -577,7 +650,7 @@ export async function getRouteStops(
 
 export interface ETAQuery {
   stopId?: string;
-  operator?: "KMB" | "CTB" | "GMB" | "MTR" | "MTRT" | "LRT" | "NLB" | null;
+  operator?: "KMB" | "CTB" | "GMB" | "MTR" | "MTRT" | "LRT" | "NLB" | "SUNFERRY" | "HKKF" | "STARFERRY" | null;
   originalId?: string;
   routes?: string; // comma separated, for CTB
   gmb?: {
@@ -612,6 +685,13 @@ export interface ETAQuery {
     dest_tc: string;
     dest_en: string;
   };
+  ferry?: import("@/types/bus").FerryMeta & {
+    dest_tc: string;
+    dest_en: string;
+    from_tc: string;
+    from_en: string;
+    pierSeq?: number; // 1 = departures from origin pier; 2 = reverse direction
+  };
 }
 
 function cleanKmbId(stopId: string, originalId?: string) {
@@ -619,9 +699,175 @@ function cleanKmbId(stopId: string, originalId?: string) {
   return kmbId.includes("-") ? kmbId.split("-").pop()! : kmbId;
 }
 
+
+type FerryETAQuery = import("@/types/bus").FerryMeta & {
+  dest_tc: string;
+  dest_en: string;
+  from_tc: string;
+  from_en: string;
+  pierSeq?: number;
+};
+
+function ferryOperator(company: string): "SUNFERRY" | "HKKF" | "STARFERRY" {
+  return company === "SUN" ? "SUNFERRY" : company === "HKKF" ? "HKKF" : "STARFERRY";
+}
+
+// Next-departure ETAs for a ferry direction. pierSeq 2 means "departures from
+// the destination pier" (reverse direction), used by hearts saved at that pier.
+export async function getFerryETAs(ferry: FerryETAQuery): Promise<ETA[]> {
+  let meta: FerryETAQuery = ferry;
+  if (ferry.pierSeq === 2) {
+    try {
+      const all = await loadFerryRoutes();
+      const rev = all.find(
+        (r: any) => r.company === ferry.company && r.fromPier === ferry.toPier && r.toPier === ferry.fromPier
+      );
+      if (rev) {
+        meta = {
+          company: rev.company,
+          code: rev.code,
+          dir: rev.dir,
+          starDir: rev.starDir,
+          fromPier: rev.fromPier,
+          toPier: rev.toPier,
+          dest_tc: ferry.from_tc,
+          dest_en: ferry.from_en,
+          from_tc: ferry.dest_tc,
+          from_en: ferry.dest_en,
+        };
+      }
+    } catch {}
+  }
+  const op = ferryOperator(meta.company);
+  const now = new Date();
+
+  if (meta.company === "SUN") {
+    try {
+      const res = await fetch(
+        `https://www.sunferry.com.hk/eta/?route=${encodeURIComponent(meta.code)}`
+      ).then((r) => r.json());
+      const row = (res?.data || [])[0];
+      if (!row || !row.depart_time) return [];
+      const [h, m] = String(row.depart_time).split(":").map((x: string) => parseInt(x, 10));
+      const dep = new Date(now);
+      dep.setHours(h, m, 0, 0);
+      let mins = Math.round((dep.getTime() - now.getTime()) / 60000);
+      // APIs return the current/last sailing even after departure;
+      // more than 5 min gone = no longer boardable -> hide
+      if (mins < -5) return [];
+      if (mins < 0) mins = 0;
+      return [
+        {
+          id: `sun-${meta.code}`,
+          operator: op,
+          route: meta.code,
+          destEn: meta.dest_en,
+          destTc: meta.dest_tc,
+          eta: dep.toISOString(),
+          etaMinutes: mins,
+          remarkEn: row.rmk_en || undefined,
+          remarkTc: row.rmk_tc || undefined,
+          sequence: 1,
+          isRealtime: true,
+        },
+      ];
+    } catch {
+      return [];
+    }
+  }
+
+  if (meta.company === "HKKF") {
+    try {
+      const res = await fetch(
+        `https://www.hkkfeta.com/opendata/eta/${meta.code}/${meta.dir || "outbound"}`
+      ).then((r) => r.json());
+      const row = (res?.data || [])[0];
+      if (!row || !row.session_time) return [];
+      const [h, m] = String(row.session_time).split(":").map((x: string) => parseInt(x, 10));
+      const dep = new Date(now);
+      dep.setHours(h, m, 0, 0);
+      let mins = Math.round((dep.getTime() - now.getTime()) / 60000);
+      if (mins < -5) return [];
+      if (mins < 0) mins = 0;
+      return [
+        {
+          id: `hkkf-${meta.code}-${meta.dir}`,
+          operator: op,
+          route: meta.code,
+          destEn: meta.dest_en,
+          destTc: meta.dest_tc,
+          eta: row.ETA || dep.toISOString(),
+          etaMinutes: mins,
+          sequence: 1,
+          isRealtime: true,
+        },
+      ];
+    } catch {
+      return [];
+    }
+  }
+
+  // Star Ferry: official data is a frequency table, not exact sailings.
+  // Show the current headway honestly; never invent a departure time.
+  try {
+    if (!starTtCache) {
+      starTtCache = await plainFetch("ferry/star-timetable.json").catch(() => ({}));
+    }
+    if (!holidaysCache) {
+      holidaysCache = await plainFetch("ferry/hk-holidays.json").catch(() => []);
+    }
+    const table = (starTtCache || {})[meta.starDir || ""];
+    if (!table) return [];
+    const ymd = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    const isPH = (holidaysCache || []).includes(ymd);
+    const dow = now.getDay();
+    const matches = (key: string) => {
+      switch (key) {
+        case "weekday": return dow >= 1 && dow <= 5 && !isPH;
+        case "monsat": return dow >= 1 && dow <= 6 && !isPH;
+        case "sat": return dow === 6 && !isPH;
+        case "sunph": return dow === 0 || isPH;
+        case "satsunph": return dow === 6 || dow === 0 || isPH;
+        default: return false;
+      }
+    };
+    const nowHM = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+    for (const [key, periods] of Object.entries(table)) {
+      if (!matches(key)) continue;
+      for (const p of periods as any[]) {
+        if (nowHM >= p.start && nowHM < p.end) {
+          const freq =
+            p.freqMin === p.freqMax ? `${p.freqMin}` : `${p.freqMin}–${p.freqMax}`;
+          return [
+            {
+              id: `star-${meta.code}`,
+              operator: op,
+              route: meta.code,
+              destEn: meta.dest_en,
+              destTc: meta.dest_tc,
+              eta: null,
+              etaMinutes: null,
+              remarkEn: `Every ${freq} mins (timetable)`,
+              remarkTc: `約 ${freq} 分鐘一班（時間表）`,
+              sequence: 1,
+              isRealtime: false,
+            },
+          ];
+        }
+      }
+    }
+    return [];
+  } catch {
+    return [];
+  }
+}
+
 export async function getETAs(query: ETAQuery): Promise<ETA[]> {
   const { stopId, operator, originalId, routes } = query;
-  if (!stopId && !originalId && !(operator === "GMB" && query.gmb) && !(operator === "MTR" && query.mtr) && !(operator === "NLB" && query.nlb)) return [];
+  if (!stopId && !originalId && !(operator === "GMB" && query.gmb) && !(operator === "MTR" && query.mtr) && !(operator === "NLB" && query.nlb) && !query.ferry) return [];
+  if (query.ferry) {
+    return getFerryETAs(query.ferry);
+  }
   let etas: ETA[] = [];
 
   // MTR Bus via rt.data.gov.hk (has CORS *, POST API)

@@ -25,7 +25,8 @@ export function HeartFocusView({
         heart.operator as any,
         heart.bound || "O",
         heart.gmb,
-        heart.nlb
+        heart.nlb,
+        heart.ferry
       );
       const stop = stops[heart.stopSeq - 1];
       if (!stop) return [];
@@ -40,6 +41,19 @@ export function HeartFocusView({
             code: heart.route,
             dest_tc: heart.destTc,
             dest_en: heart.destEn,
+          },
+        } as any);
+      }
+      if (heart.ferry) {
+        return getETAs({
+          operator: heart.operator as any,
+          ferry: {
+            ...heart.ferry,
+            dest_tc: heart.destTc,
+            dest_en: heart.destEn,
+            from_tc: heart.originTc,
+            from_en: heart.originEn,
+            pierSeq: heart.stopSeq,
           },
         } as any);
       }

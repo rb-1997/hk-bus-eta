@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import type { BusStop } from "@/types/bus";
 
 export interface NearbyTransport {
-  kind: "bus" | "mtr" | "lrt" | "gmb" | "nlb";
+  kind: "bus" | "mtr" | "lrt" | "gmb" | "nlb" | "ferry";
   id: string;
   nameTc: string;
   nameEn: string;
@@ -17,6 +17,7 @@ export interface NearbyTransport {
   lrt?: { stationId: string; tc: string; en: string };
   gmb?: { route_id: number; route_seq: number; stop_seq: number; code: string; dest_tc: string; dest_en: string; stop_id: number };
   nlb?: { routeId: number; routeNo: string; stopId: number; dest_tc: string; dest_en: string };
+  ferry?: import("@/types/bus").FerryMeta & { dest_tc: string; dest_en: string; from_tc: string; from_en: string };
 }
 
 function haversine(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -185,6 +186,45 @@ export function useNearbyTransport(
                 },
               });
             }
+          }
+        }
+      } catch {}
+
+      // Ferry piers (within range) - bundled piers + routes
+      try {
+        const [pRes, rRes] = await Promise.all([
+          fetch("ferry/piers.json"),
+          fetch("ferry/routes.json"),
+        ]);
+        const piers = await pRes.json();
+        const froutes = await rRes.json();
+        const pierById = new Map(piers.map((p: any) => [p.id, p]));
+        for (const r of froutes) {
+          const pier: any = pierById.get(r.fromPier);
+          if (!pier) continue;
+          const dist = haversine(userLat, userLng, pier.lat, pier.lng);
+          if (dist <= maxDist) {
+            all.push({
+              kind: "ferry",
+              id: `ferry-${r.key}`,
+              nameTc: pier.nameTc,
+              nameEn: pier.nameEn,
+              lat: pier.lat,
+              lng: pier.lng,
+              dist,
+              ferry: {
+                company: r.company,
+                code: r.code,
+                dir: r.dir,
+                starDir: r.starDir,
+                fromPier: r.fromPier,
+                toPier: r.toPier,
+                dest_tc: r.destTc,
+                dest_en: r.destEn,
+                from_tc: r.fromTc,
+                from_en: r.fromEn,
+              },
+            });
           }
         }
       } catch {}

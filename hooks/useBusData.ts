@@ -79,18 +79,19 @@ export function useRouteSearch(query: string) {
 
 export function useRouteStops(
   route: string | null,
-  operator: "KMB" | "CTB" | "LWB" | "GMB" | "MTR" | "NLB" | null,
+  operator: "KMB" | "CTB" | "LWB" | "GMB" | "MTR" | "NLB" | "SUNFERRY" | "HKKF" | "STARFERRY" | null,
   bound: string = "O",
   gmbMeta?: { region: string; code: string; route_id: number; route_seq: number },
-  nlbMeta?: { routeId: number }
+  nlbMeta?: { routeId: number },
+  ferryMeta?: import("@/types/bus").FerryMeta
 ) {
   const key =
     route && operator
-      ? (["route-stops", route, operator, bound, gmbMeta?.route_seq ?? nlbMeta?.routeId ?? 0] as [string, string, string, string, number])
+      ? (["route-stops", route, operator, bound, gmbMeta?.route_seq ?? nlbMeta?.routeId ?? ferryMeta?.code ?? 0] as [string, string, string, string, number | string])
       : null;
 
-  const { data, error, isLoading } = useSWR<RouteStopSeq[]>(key, (k: [string, string, string, string, number]) =>
-    getRouteStops(k[1], k[2] as "KMB" | "CTB" | "LWB" | "GMB" | "MTR" | "NLB", k[3], gmbMeta, nlbMeta), {
+  const { data, error, isLoading } = useSWR<RouteStopSeq[]>(key, (k: [string, string, string, string, number | string]) =>
+    getRouteStops(k[1], k[2] as "KMB" | "CTB" | "LWB" | "GMB" | "MTR" | "NLB" | "SUNFERRY" | "HKKF" | "STARFERRY", k[3], gmbMeta, nlbMeta, ferryMeta), {
     revalidateOnFocus: false,
     dedupingInterval: 300000,
   });

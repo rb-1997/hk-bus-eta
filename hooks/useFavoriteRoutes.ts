@@ -53,6 +53,7 @@ export function useFavoriteRoutes() {
                 bound: route.bound,
                 gmb: route.gmb,
                 nlb: route.nlb,
+                ferry: route.ferry,
                 savedAt: Date.now(),
               },
             ];

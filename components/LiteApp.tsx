@@ -35,7 +35,7 @@ import clsx from "clsx";
 
 // App name + version: bump patch version on every user-facing change
 export const APP_NAME = "CNE 交通資訊";
-export const APP_VERSION = "1.1.8";
+export const APP_VERSION = "1.1.9";
 
 export function OperatorBadge({ operator }: { operator: string }) {
   const src =
@@ -320,7 +320,7 @@ function LiteRouteStopRow({
       }
       return [];
     },
-    { revalidateOnFocus: false, dedupingInterval: 30000, errorRetryCount: 1 }
+    { refreshInterval: 10000, revalidateOnFocus: false, dedupingInterval: 5000, errorRetryCount: 1 }
   );
 
   const { data: ctbName } = useSWR(
@@ -511,7 +511,7 @@ function StopSearchResultETAs({ stop }: { stop: any }) {
       };
       return getAllETAsForStop(stopObj as any);
     },
-    { refreshInterval: 30000, revalidateOnFocus: false }
+    { refreshInterval: 10000, revalidateOnFocus: false }
   );
 
   if (isLoading) {
@@ -643,6 +643,83 @@ function CtbDirectionToggle({
   );
 }
 
+
+function HelpSection({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm px-4 py-3.5">
+      <div className="text-[16px] font-bold text-green-800 mb-1.5">{title}</div>
+      <div className="text-[14px] leading-relaxed text-slate-600 space-y-1.5">{children}</div>
+    </div>
+  );
+}
+
+function HelpView() {
+  return (
+    <div className="space-y-3">
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm px-4 py-3.5 text-center">
+        <div className="text-[18px] font-bold text-green-800">📖 使用說明</div>
+        <div className="text-[13px] text-slate-500 mt-0.5">香港交通即時班次，一個 App 睇晒</div>
+      </div>
+
+      <HelpSection title="一、附近偵測">
+        <p>打開 App 撳「📍 定位」，App 會以你嘅位置為中心，偵測你預設範圍內（預設 800 米）嘅任何香港交通工具，包括巴士（九巴、城巴、龍運、港鐵巴士）、綠色小巴、大嶼山巴士、港鐵、輕鐵同渡輪（新渡輪、港九小輪、天星小輪），按距離由近至遠排列，每張卡顯示即時班次，每 10 秒自動更新。冇班次嘅站會自動收起，唔會阻住你。</p>
+      </HelpSection>
+
+      <div className="bg-amber-50 rounded-2xl border border-amber-200 shadow-sm px-4 py-3.5">
+        <div className="text-[16px] font-bold text-amber-700 mb-1.5">⚠️ 重要提醒：範圍以外查唔到</div>
+        <div className="text-[14px] leading-relaxed text-amber-800">
+          「附近」只會顯示你定位範圍之內嘅交通。如果你身處範圍以外（例如人在外地，或者想查嘅地方離你好遠），附近係唔會顯示到嗰邊嘅交通資訊。呢個時候唔使擔心，用頂部嘅搜尋欄，輸入你想去嘅地方名或者車站名，一樣可以查到嗰度嘅班次（睇下面第四節）。
+        </div>
+      </div>
+
+      <HelpSection title="二、搜尋範圍">
+        <p>附近頁頂部有條滑桿，可以自己調校搜尋範圍，由 200 米至 2000 米，想睇遠啲就拉大啲。</p>
+      </HelpSection>
+
+      <HelpSection title="三、營運商選擇">
+        <p>搜尋欄下面有兩行營運商 logo：全部、九巴、城巴、港鐵巴士、小巴、嶼巴、鐵路、輕鐵、渡輪。撳邊間，附近列表即刻淨係顯示嗰間公司嘅班次；無論你喺邊個畫面撳，都會即刻跳返去附近頁。撳「全部」就睇返晒。</p>
+      </HelpSection>
+
+      <HelpSection title="四、搜尋器點用">
+        <p>頂部搜尋欄有三種打法，識用邊種都得：</p>
+        <p>1️⃣ <b>打路線號碼</b>：例如想知 968 號巴士幾時有車，打「968」，就會列出嗰條線嘅所有方向。</p>
+        <p>2️⃣ <b>打想去嘅地方名</b>：例如打「迪士尼」、「海洋公園」或者「山頂」，會搵出所有去到嗰度嘅路線同車站。</p>
+        <p>3️⃣ <b>打車站名</b>：例如打「金鐘」、「太子」，撳入個站，就會一次過睇晒嗰個站所有路線嘅即時班次。</p>
+        <p>💡 小貼士：唔使打齊成個名，打頭幾個字已經會出結果；中文、英文都得。撳入任何一條路線，會見到成條線嘅所有站，每一站都有即時班次。</p>
+      </HelpSection>
+
+      <HelpSection title="五、我的最愛（★）">
+        <p>❤ <b>心心</b>：喺路線詳情頁，每個站都有一粒 ♡。撳一下，就收藏「嗰條線＋嗰個方向＋嗰個站」。之後一開心心頁，就直接見到你成日上車嗰個站嘅即時班次（每 10 秒自動更新），唔使再搵；仲可以用 ▲▼ 調校次序，撳入去係單站專注畫面。</p>
+        <p>★ <b>路線</b>：收藏成條路線，隨時撳返出嚟睇全線班次。</p>
+        <p>⭐ <b>車站</b>：喺附近頁，巴士站卡右上角有粒星，撳一下收藏成個站，之後會一次過列晒嗰個站所有路線嘅班次。</p>
+      </HelpSection>
+
+      <HelpSection title="六、頂部按鈕（任何畫面都喺度）">
+        <p>📍 <b>定位</b>：重新偵測你而家嘅位置</p>
+        <p>🏠 <b>屋企</b>：即刻返去附近主頁</p>
+        <p>🔄 <b>更新</b>：即刻重新載入所有班次資料</p>
+        <p><b>あA</b>：放大字體（100% ↔ 150%），撳多下切換返</p>
+        <p>❓ <b>使用說明</b>：即係呢一頁，隨時撳返嚟睇</p>
+      </HelpSection>
+
+      <HelpSection title="七、資料準確度（老實講）">
+        <p>班次全部嚟自運輸署同各營運商嘅官方即時數據。有兩個例外要留意：大嶼山巴士嘅班次係用官方時間表推算；天星小輪官方只提供班次密度，App 會顯示「約 X 分鐘一班（時間表）」，唔係確實開船時間。過境直通巴士因為冇公開數據，同埋電車即時數據未開放，兩樣都暫時未有。</p>
+      </HelpSection>
+
+      <HelpSection title="八、其他">
+        <p>App 會記住你嘅收藏、字體大小同營運商選擇，下次開返唔使再設定。查詢班次需要網絡連線。</p>
+      </HelpSection>
+
+      <div className="bg-slate-100 rounded-2xl px-4 py-3.5">
+        <div className="text-[14px] font-bold text-slate-600 mb-1">⚠️ 免責聲明</div>
+        <div className="text-[12.5px] leading-relaxed text-slate-500">
+          本 App 所顯示之公共交通資訊（包括路線、班次、預計到達時間及服務狀況），乃根據運輸署及各公共交通營運商所提供之資料顯示，僅供參考之用。實際班次及服務可能因交通狀況、天氣或其他原因而有所更改或延誤，詳情以各營運商之最新公佈為準。本 App 並不保證有關資訊之準確性、完整性或即時性；使用者因依賴本 App 之資訊而引致之任何損失、不便或延誤，本 App 概不負責。出門前請預留充足時間，並留意營運商之特別交通安排及公告。
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function LiteApp() {
   const [tab, setTab] = useState<Tab>("nearby");
   const [favTab, setFavTab] = useState<"hearts" | "routes" | "stops">("hearts");
@@ -666,6 +743,7 @@ export default function LiteApp() {
   };
   const [selectedRoute, setSelectedRoute] = useState<BusRoute | null>(null);
   const [heartFocus, setHeartFocus] = useState<FavoriteRouteStop | null>(null);
+  const [showHelp, setShowHelp] = useState(false);
   const [editOrder, setEditOrder] = useState(false);
   const [highlightSeq, setHighlightSeq] = useState<number | null>(null);
   // CTB direction toggle: CTB search returns one card per route ("Both directions"
@@ -860,6 +938,7 @@ export default function LiteApp() {
             onClick={() => {
               setHeartFocus(null);
               setSelectedRoute(null);
+              setShowHelp(false);
               setRouteQuery("");
               setTab("nearby");
             }}
@@ -889,11 +968,20 @@ export default function LiteApp() {
             <span className="text-[16px] font-bold leading-none">あA</span>
             <span className="text-[10px] font-medium mt-0.5">{Math.round(fontScale * 100)}%</span>
           </button>
-          {(heartFocus || selectedRoute) && (
+          <button
+            onClick={() => setShowHelp(true)}
+            className="flex flex-col items-center justify-center w-14 h-14 rounded-3xl bg-white border border-[#F5E6D3] text-[#8B6F47] shadow-sm active:scale-95 transition shrink-0"
+            aria-label="使用說明"
+          >
+            <span className="text-[20px] leading-none">❓</span>
+            <span className="text-[10px] font-medium mt-0.5">使用說明</span>
+          </button>
+          {(heartFocus || selectedRoute || showHelp) && (
             <button
               onClick={() => {
                 setHeartFocus(null);
                 setSelectedRoute(null);
+                setShowHelp(false);
               }}
               className="flex items-center justify-center h-14 px-4 rounded-3xl bg-[#FFF5E6] border border-[#F5E6D3] text-[#8B6F47] text-[14px] font-medium active:scale-95 transition shrink-0"
               aria-label="返回"
@@ -912,6 +1000,7 @@ export default function LiteApp() {
             value={routeQuery}
             onChange={(e) => {
               setRouteQuery(e.target.value);
+              setShowHelp(false);
               setTab("routes");
               setSelectedRoute(null);
               setHeartFocus(null);
@@ -979,6 +1068,7 @@ export default function LiteApp() {
                   // where the filter takes effect right away
                   setSelectedRoute(null);
                   setHeartFocus(null);
+                  setShowHelp(false);
                   setTab("nearby");
                 }}
                 className={clsx(
@@ -1022,7 +1112,7 @@ export default function LiteApp() {
           ).map((t) => (
             <button
               key={t.id}
-              onClick={() => setTab(t.id as Tab)}
+              onClick={() => { setShowHelp(false); setTab(t.id as Tab); }}
               className={clsx(
                 "flex-1 py-2.5 text-[14px] font-medium rounded-full transition-all flex items-center justify-center gap-1.5",
                 tab === t.id
@@ -1145,7 +1235,9 @@ export default function LiteApp() {
               </div>
             )}
 
-            {heartFocus ? (
+            {showHelp ? (
+              <HelpView />
+            ) : heartFocus ? (
               <HeartFocusView heart={heartFocus} onBack={() => setHeartFocus(null)} />
             ) : selectedRoute ? (
               <div>

@@ -44,9 +44,9 @@ export function useETA(
     key,
     () => getAllETAsForStop(stop!),
     {
-      refreshInterval: 60000, // auto every 60s as backup
+      refreshInterval: 10000, // auto-refresh every 10s
       revalidateOnFocus: false, // avoid request storm on focus
-      dedupingInterval: 30000,
+      dedupingInterval: 5000,
       errorRetryCount: 2,
     }
   );

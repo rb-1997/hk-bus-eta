@@ -59,9 +59,9 @@ export function LRTStationETAs({ route }: { route: BusRoute }) {
       return [];
     },
     {
-      refreshInterval: 30000,
+      refreshInterval: 10000,
       revalidateOnFocus: false,
-      dedupingInterval: 10000,
+      dedupingInterval: 5000,
     }
   );
 

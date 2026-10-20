@@ -126,9 +126,9 @@ export function MTRTStationETAs({ route }: { route: BusRoute }) {
       }
     },
     {
-      refreshInterval: 30000,
+      refreshInterval: 10000,
       revalidateOnFocus: false,
-      dedupingInterval: 10000,
+      dedupingInterval: 5000,
     }
   );
 

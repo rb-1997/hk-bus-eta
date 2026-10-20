@@ -197,9 +197,9 @@ export function HeartListItem({
       } as any);
     },
     {
-      refreshInterval: 30000,
+      refreshInterval: 10000,
       revalidateOnFocus: false,
-      dedupingInterval: 15000,
+      dedupingInterval: 5000,
     }
   );
 

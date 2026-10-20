@@ -75,7 +75,7 @@ export function HeartFocusView({
         route: heart.route,
       } as any);
     },
-    { refreshInterval: 30000, revalidateOnFocus: false, dedupingInterval: 10000 }
+    { refreshInterval: 10000, revalidateOnFocus: false, dedupingInterval: 5000 }
   );
 
   // For LRT/MTRT hearts, show station ETAs directly

@@ -35,7 +35,7 @@ import clsx from "clsx";
 
 // App name + version: bump patch version on every user-facing change
 export const APP_NAME = "CNE 交通資訊";
-export const APP_VERSION = "1.1.5";
+export const APP_VERSION = "1.1.6";
 
 export function OperatorBadge({ operator }: { operator: string }) {
   const src =
@@ -902,6 +902,11 @@ export default function LiteApp() {
                 onClick={() => {
                   setOperatorFilter(o.id);
                   try { localStorage.setItem("hk-bus-eta-op-filter", o.id); } catch {}
+                  // Immediate jump: leave any detail view and go to nearby list,
+                  // where the filter takes effect right away
+                  setSelectedRoute(null);
+                  setHeartFocus(null);
+                  setTab("nearby");
                 }}
                 className={clsx(
                   "flex items-center gap-1.5 px-3 h-10 rounded-full border shrink-0 active:scale-95 transition-all",

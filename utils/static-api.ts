@@ -1122,6 +1122,50 @@ async function getCtbStopRoutes() {
  * Get ETAs from ALL operators serving a stop (via cross-operator stop links).
  * For a KMB stop, also queries nearby CTB/MTR/GMB stops.
  */
+const mtrRouteFileCache = new Map<string, any>();
+async function loadMtrRouteFile(route: string, dir: string): Promise<any> {
+  const key = `${route}-${dir}`;
+  if (!mtrRouteFileCache.has(key)) {
+    mtrRouteFileCache.set(key, await plainFetch(`mtr/routes/${key}.json`).catch(() => null));
+  }
+  return mtrRouteFileCache.get(key);
+}
+
+// The direction terminus for an MTR Bus stop: whichever bundled direction
+// file contains the stop, its LAST stop is where buses from here are going.
+// (Stop-links only carry the stop's own name, which must NOT be used as the
+// destination label - that made every MTR bus read "to <this stop>".)
+async function getMtrBusDirectionDest(
+  route: string,
+  stopId: string
+): Promise<{ tc: string; en: string } | null> {
+  for (const dir of ["O", "I"]) {
+    const data = await loadMtrRouteFile(route, dir);
+    const stops = data?.stops || [];
+    if (stops.length && stops.some((s: any) => s.stop_id === stopId)) {
+      const last = stops[stops.length - 1];
+      return { tc: last.name_tc, en: last.name_en };
+    }
+  }
+  // Fallback: the stop itself is missing from the bundled list (added by MTR
+  // later), but its U/D series still identifies the direction - only trust
+  // this when the direction file is a clean single-series list.
+  const series = stopId.includes("-U") ? "U" : stopId.includes("-D") ? "D" : null;
+  const wantDir = series === "U" ? "O" : series === "D" ? "I" : null;
+  if (wantDir) {
+    const data = await loadMtrRouteFile(route, wantDir);
+    const stops = data?.stops || [];
+    if (
+      stops.length &&
+      stops.every((s: any) => String(s.stop_id).includes(`-${series}`))
+    ) {
+      const last = stops[stops.length - 1];
+      return { tc: last.name_tc, en: last.name_en };
+    }
+  }
+  return null;
+}
+
 export async function getAllETAsForStop(
   stop: { id: string; originalIds: { operator: string; id: string }[]; gmb?: any }
 ): Promise<ETA[]> {
@@ -1161,16 +1205,18 @@ export async function getAllETAsForStop(
           );
         }
       }
-      // MTR linked stops (limit 2)
+      // MTR linked stops (limit 2). Destination label = the direction's
+      // terminus (from the bundled route file), NOT the stop's own name.
       for (const mtr of (link.mtr || []).slice(0, 2)) {
+        const dest = await getMtrBusDirectionDest(mtr.route, mtr.id).catch(() => null);
         promises.push(
           getETAs({
             operator: "MTR",
             mtr: {
               routeName: mtr.route,
               stopId: mtr.id,
-              dest_tc: mtr.name_tc,
-              dest_en: mtr.name_en,
+              dest_tc: dest?.tc || mtr.name_tc,
+              dest_en: dest?.en || mtr.name_en,
             },
           }).catch(() => [] as ETA[])
         );

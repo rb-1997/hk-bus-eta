@@ -479,6 +479,34 @@ function starNoteFor(heart: FavoriteRouteStop, tt: any, holidays: string[]): Not
   };
 }
 
+let lrtTtCache: Promise<any> | null = null;
+function loadLrtTt(): Promise<any> {
+  if (!lrtTtCache) {
+    lrtTtCache = fetch("lrt-timetables.json").then((r) => r.json()).catch(() => null);
+  }
+  return lrtTtCache;
+}
+
+// Light Rail: MTR's official table is per-stop, so first/last here are
+// the times AT this stop for this direction (not terminus departures).
+function lrtNoteFor(heart: FavoriteRouteStop, data: any): NoteInfo | null {
+  const sid = (heart as any).lrt?.stationId;
+  const rd = data?.routes?.[heart.route];
+  if (!sid || !rd?.dirs?.length) return null;
+  const norm = (s: string) => (s || "").replace(/\s/g, "").replace(/站$/, "");
+  const dir =
+    rd.dirs.find((d: any) => norm(d.dest_tc) === norm(heart.destTc)) ||
+    rd.dirs.find((d: any) => norm(heart.destTc).includes(norm(d.dest_tc)) || norm(d.dest_tc).includes(norm(heart.destTc))) ||
+    (rd.dirs.length === 1 ? rd.dirs[0] : null);
+  const entry = dir?.stops?.[sid];
+  if (!entry) return null;
+  return {
+    first: entry.f,
+    last: entry.l,
+    note: `此站往${dir.dest_tc} · 港鐵輕鐵官方時間表 ${data.generated || ""}`,
+  };
+}
+
 function TimetableNote({ heart, alignRight }: { heart: FavoriteRouteStop; alignRight?: boolean }) {
   const [info, setInfo] = React.useState<NoteInfo | null>(null);
   const [loaded, setLoaded] = React.useState(false);
@@ -491,6 +519,17 @@ function TimetableNote({ heart, alignRight }: { heart: FavoriteRouteStop; alignR
         try {
           const [data, holidays] = await Promise.all([loadGmbTt(), loadHolidays2()]);
           const n = data ? gmbNoteFor(heart, data, holidays || []) : null;
+          if (n) {
+            if (alive) { setInfo(n); setLoaded(true); }
+            return;
+          }
+        } catch {}
+      }
+      // (1.5) Light Rail per-stop official table
+      if (heart.operator === "LRT") {
+        try {
+          const lrtData = await loadLrtTt();
+          const n = lrtData ? lrtNoteFor(heart, lrtData) : null;
           if (n) {
             if (alive) { setInfo(n); setLoaded(true); }
             return;

@@ -6,7 +6,7 @@ import { getETAs } from "@/utils/static-api";
 import type { ETA, BusStop } from "@/types/bus";
 import type { NearbyTransport } from "@/hooks/useNearbyTransport";
 import { clsx } from "clsx";
-import { ChevronDown, Star, StarOff } from "lucide-react";
+import { ChevronDown, Star, StarOff, Navigation } from "lucide-react";
 import { OperatorBadge } from "./LiteApp";
 
 function etaText(e: ETA): string {
@@ -309,7 +309,19 @@ export function NearbyTransportCard({
         onClick={() => setExpanded((e) => !e)}
         className="w-full text-left px-4 py-3 flex items-start gap-3 active:bg-slate-50"
       >
-        <div className="min-w-0 flex-1">
+        <div
+          className="min-w-0 flex-1 cursor-pointer"
+          role="button"
+          aria-label={`喺 Google 地圖導航去 ${item.nameTc}`}
+          title="撳一下開 Google 地圖導航去呢個站"
+          onClick={(e) => {
+            e.stopPropagation();
+            window.open(
+              `https://www.google.com/maps/dir/?api=1&destination=${item.lat},${item.lng}&travelmode=walking`,
+              "_blank"
+            );
+          }}
+        >
           <div className="flex items-center gap-2">
             <KindBadge kind={item.kind} />
             <span className="font-semibold text-slate-900 text-[17px] truncate">
@@ -318,6 +330,7 @@ export function NearbyTransportCard({
             <span className="text-[12px] text-green-600 font-medium tabular-nums shrink-0">
               {distText}
             </span>
+            <Navigation className="w-3.5 h-3.5 text-blue-500 shrink-0" />
           </div>
           {item.nameEn && (
             <div className="text-[13px] text-slate-400 truncate mt-0.5">{item.nameEn}</div>

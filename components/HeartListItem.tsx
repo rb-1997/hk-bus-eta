@@ -309,16 +309,80 @@ export function HeartListItem({
   );
 }
 
-// Shows timetable info when no real-time ETA (e.g. night)
+// Shows timetable info when no real-time ETA (e.g. night).
+// Sources, in order: (1) bulk official GMB timetables (per direction,
+// day-type aware), (2) the small hand-verified timetables.json.
+let gmbTtCache: Promise<any> | null = null;
+let holidaysCache2: Promise<string[]> | null = null;
+function loadGmbTt(): Promise<any> {
+  if (!gmbTtCache) {
+    gmbTtCache = fetch("gmb-timetables.json").then((r) => r.json()).catch(() => null);
+  }
+  return gmbTtCache;
+}
+function loadHolidays2(): Promise<string[]> {
+  if (!holidaysCache2) {
+    holidaysCache2 = fetch("ferry/hk-holidays.json").then((r) => r.json()).catch(() => []);
+  }
+  return holidaysCache2;
+}
+
+type NoteInfo = { first?: string; last?: string; note?: string; noServiceToday?: boolean };
+
+function gmbNoteFor(heart: FavoriteRouteStop, data: any, holidays: string[]): NoteInfo | null {
+  const g = (heart as any).gmb;
+  if (!g || !data?.routes) return null;
+  const entry = data.routes[`GMB-${g.region}-${g.code}`];
+  if (!entry) return null;
+  const dir = (entry.dirs || []).find((d: any) => d.seq === g.route_seq) || (entry.dirs || [])[0];
+  if (!dir || !(dir.periods || []).length) return null;
+  const now = new Date();
+  const ymd = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  const isPH = holidays.includes(ymd);
+  const idx = (now.getDay() + 6) % 7; // Mon=0 ... Sun=6
+  let periods: any[] = [];
+  if (isPH) {
+    periods = dir.periods.filter((p: any) => p.ph);
+    if (!periods.length) periods = dir.periods.filter((p: any) => p.days && p.days[6]);
+  } else {
+    periods = dir.periods.filter((p: any) => p.days && p.days[idx]);
+  }
+  if (!periods.length) {
+    return { noServiceToday: true, note: `${dir.orig_tc}往${dir.dest_tc}（總站開出）· 運輸署資料 ${data.generated || ""}` };
+  }
+  const first = periods.map((p: any) => p.start).sort()[0];
+  const last = periods.map((p: any) => p.end).sort()[periods.length - 1];
+  const fMin = Math.min(...periods.map((p: any) => p.f1 || 0).filter((x: number) => x > 0));
+  const fMax = Math.max(...periods.map((p: any) => p.f2 || p.f1 || 0));
+  const freq = fMin === fMax ? `${fMin}` : `${fMin}–${fMax}`;
+  return {
+    first,
+    last,
+    note: `${dir.orig_tc}往${dir.dest_tc}（總站開出）· 約 ${freq} 分鐘一班 · 運輸署資料 ${data.generated || ""}`,
+  };
+}
+
 function TimetableNote({ heart, alignRight }: { heart: FavoriteRouteStop; alignRight?: boolean }) {
-  const [timetable, setTimetable] = React.useState<any>(null);
+  const [info, setInfo] = React.useState<NoteInfo | null>(null);
   const [loaded, setLoaded] = React.useState(false);
 
   React.useEffect(() => {
-    fetch("timetables.json")
-      .then((r) => r.json())
-      .then((data) => {
-        // Try keys: {operator}-{route}, LRT-{route}, etc.
+    let alive = true;
+    (async () => {
+      // (1) GMB bulk official timetables
+      if (heart.operator === "GMB") {
+        try {
+          const [data, holidays] = await Promise.all([loadGmbTt(), loadHolidays2()]);
+          const n = data ? gmbNoteFor(heart, data, holidays || []) : null;
+          if (n) {
+            if (alive) { setInfo(n); setLoaded(true); }
+            return;
+          }
+        } catch {}
+      }
+      // (2) hand-verified static entries
+      try {
+        const data = await fetch("timetables.json").then((r) => r.json());
         const keys = [
           `${heart.operator}-${heart.route}`,
           `LRT-${heart.route}`,
@@ -326,21 +390,30 @@ function TimetableNote({ heart, alignRight }: { heart: FavoriteRouteStop; alignR
         ].filter(Boolean);
         for (const k of keys) {
           if (data[k as string]) {
-            setTimetable(data[k as string]);
+            if (alive) setInfo({ first: data[k as string].first, last: data[k as string].last, note: data[k as string].note });
             break;
           }
         }
-        setLoaded(true);
-      })
-      .catch(() => setLoaded(true));
+      } catch {}
+      if (alive) setLoaded(true);
+    })();
+    return () => { alive = false; };
   }, [heart]);
 
   if (!loaded) return <div className="text-[14px] text-slate-400">暫無班次</div>;
-  if (!timetable) return <div className="text-[14px] text-slate-400">暫無班次</div>;
+  if (!info) return <div className="text-[14px] text-slate-400">暫無班次</div>;
+  if (info.noServiceToday) {
+    return (
+      <div className={clsx("text-[13px] text-slate-500", alignRight && "text-right")}>
+        暫無班次 · 今日暫停服務（官方時間表）
+        {info.note && <span className="block text-[12px] text-slate-400">{info.note}</span>}
+      </div>
+    );
+  }
   return (
     <div className={clsx("text-[13px] text-slate-500", alignRight && "text-right")}>
-      暫無班次 · 首班車 {timetable.first}，尾班車 {timetable.last}
-      {timetable.note && <span className="block text-[12px] text-slate-400">{timetable.note}</span>}
+      暫無班次 · 首班車 {info.first}，尾班車 {info.last}
+      {info.note && <span className="block text-[12px] text-slate-400">{info.note}</span>}
     </div>
   );
 }

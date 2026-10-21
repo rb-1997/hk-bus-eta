@@ -379,6 +379,14 @@ function busNoteFor(heart: FavoriteRouteStop, data: any, holidays: string[]): No
   let key: string | null = null;
   if (rid.startsWith("KMB-")) {
     key = rid;
+  } else if (rid.startsWith("MTR-")) {
+    key = rid; // MTR Bus routeId is already "MTR-{route}-{O|I}"
+  } else if (heart.operator === "NLB") {
+    key = `NLB-${heart.route}`;
+  } else if (heart.operator === "SUNFERRY" && (heart as any).ferry) {
+    key = `SUN-${(heart as any).ferry.code}`;
+  } else if (heart.operator === "HKKF" && (heart as any).ferry) {
+    key = `HKKF-${(heart as any).ferry.code}-${(heart as any).ferry.dir === "inbound" ? "I" : "O"}`;
   } else if (rid.startsWith("CTB-")) {
     const route = rid.slice(4).replace(/-(inbound|outbound)$/, "");
     key = `CTB-${route}-${rid.endsWith("inbound") ? "I" : "O"}`;
@@ -397,10 +405,21 @@ function busNoteFor(heart: FavoriteRouteStop, data: any, holidays: string[]): No
   const ymd = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
   const idx = holidays.includes(ymd) ? 0 : now.getDay();
   const norm = (s: string) => (s || "").replace(/\s/g, "").replace(/（/g, "(").replace(/）/g, ")");
-  const variant =
-    variants.find((v: any) => norm(v.o) === norm(heart.originTc) && norm(v.d) === norm(heart.destTc)) ||
-    variants.find((v: any) => v.days && v.days[idx]) ||
-    variants[0];
+  const exact = variants.find((v: any) => norm(v.o) === norm(heart.originTc) && norm(v.d) === norm(heart.destTc));
+  let variant = exact;
+  if (!variant) {
+    const destPool = variants.filter((v: any) => norm(v.d) === norm(heart.destTc));
+    const pool = destPool.length ? destPool : variants;
+    const toMin = (t: string) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
+    let bestSpan = -1;
+    for (const v of pool) {
+      const day = v.days ? v.days[idx] : null;
+      if (!day) continue;
+      const span = toMin(day.l) + (day.ln ? 1440 : 0) - toMin(day.f);
+      if (span > bestSpan) { bestSpan = span; variant = v; }
+    }
+    if (!variant) variant = pool[0];
+  }
   if (!variant) return null;
   const day = variant.days ? variant.days[idx] : null;
   const srcNote = `${variant.o}往${variant.d}（總站開出）· 運輸署資料 ${data.generated || ""}`;
@@ -412,6 +431,51 @@ function busNoteFor(heart: FavoriteRouteStop, data: any, holidays: string[]): No
     first: day.f,
     last: day.l + (day.ln ? "（翌日）" : ""),
     note: `${variant.o}往${variant.d}（總站開出）· ${freq} · 運輸署資料 ${data.generated || ""}`,
+  };
+}
+
+let starTtCache2: Promise<any> | null = null;
+function loadStarTt2(): Promise<any> {
+  if (!starTtCache2) {
+    starTtCache2 = fetch("ferry/star-timetable.json").then((r) => r.json()).catch(() => null);
+  }
+  return starTtCache2;
+}
+
+// Star Ferry: official data is a frequency table, so first/last are the
+// first/last sailing windows of today's pattern (same matcher as the ETA).
+function starNoteFor(heart: FavoriteRouteStop, tt: any, holidays: string[]): NoteInfo | null {
+  const f: any = (heart as any).ferry;
+  if (!f?.starDir || !tt) return null;
+  const table = tt[f.starDir];
+  if (!table) return null;
+  const now = new Date();
+  const ymd = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  const isPH = holidays.includes(ymd);
+  const dow = now.getDay();
+  const matches = (key: string) => {
+    switch (key) {
+      case "weekday": return dow >= 1 && dow <= 5 && !isPH;
+      case "monsat": return dow >= 1 && dow <= 6 && !isPH;
+      case "sat": return dow === 6 && !isPH;
+      case "sunph": return dow === 0 || isPH;
+      case "satsunph": return dow === 6 || dow === 0 || isPH;
+      default: return false;
+    }
+  };
+  const periods: any[] = [];
+  for (const [key, ps] of Object.entries(table)) {
+    if (matches(key)) periods.push(...(ps as any[]));
+  }
+  if (!periods.length) return { noServiceToday: true, note: "天星小輪官方時間表" };
+  const first = periods.map((p: any) => p.start).sort()[0];
+  const last = periods.map((p: any) => p.end).sort()[periods.length - 1];
+  const fMin = Math.min(...periods.map((p: any) => p.freqMin));
+  const fMax = Math.max(...periods.map((p: any) => p.freqMax));
+  return {
+    first,
+    last,
+    note: `${heart.originTc}往${heart.destTc}（總站開出）· 約 ${fMin === fMax ? fMin : `${fMin}–${fMax}`} 分鐘一班 · 天星小輪官方時間表`,
   };
 }
 
@@ -448,11 +512,22 @@ function TimetableNote({ heart, alignRight }: { heart: FavoriteRouteStop; alignR
           }
         }
       } catch {}
-      // (3) KMB/LWB/CTB bulk TD timetables
-      if (heart.operator === "KMB" || heart.operator === "LWB" || heart.operator === "CTB") {
+      // (3) Bulk TD timetables: KMB/LWB/CTB + NLB + MTR Bus + Sun/HKKF ferries
+      if (["KMB", "LWB", "CTB", "NLB", "MTR", "SUNFERRY", "HKKF"].includes(heart.operator)) {
         try {
           const [data, holidays] = await Promise.all([loadBusTt(), loadHolidays2()]);
           const n = data ? busNoteFor(heart, data, holidays || []) : null;
+          if (n) {
+            if (alive) { setInfo(n); setLoaded(true); }
+            return;
+          }
+        } catch {}
+      }
+      // (4) Star Ferry frequency table
+      if (heart.operator === "STARFERRY") {
+        try {
+          const [tt, holidays] = await Promise.all([loadStarTt2(), loadHolidays2()]);
+          const n = tt ? starNoteFor(heart, tt, holidays || []) : null;
           if (n) {
             if (alive) { setInfo(n); setLoaded(true); }
             return;

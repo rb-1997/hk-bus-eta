@@ -507,6 +507,45 @@ function lrtNoteFor(heart: FavoriteRouteStop, data: any): NoteInfo | null {
   };
 }
 
+let mtrTtCache: Promise<any> | null = null;
+function loadMtrTt(): Promise<any> {
+  if (!mtrTtCache) {
+    mtrTtCache = fetch("mtr-timetables.json").then((r) => r.json()).catch(() => null);
+  }
+  return mtrTtCache;
+}
+
+// Heavy rail: MTR publishes first/last trains per station per destination.
+// Exact destination row wins; otherwise aggregate this station's rows that
+// run in the heart's direction (earliest first, latest last).
+function mtrNoteFor(heart: FavoriteRouteStop, data: any): NoteInfo | null {
+  const m: any = (heart as any).mtrt;
+  if (!m?.line || !m?.sta) return null;
+  const ld = data?.lines?.[m.line];
+  const rowsForStop = ld?.stations?.[m.sta];
+  if (!rowsForStop?.length) return null;
+  const norm = (s: string) => (s || "").replace(/\s/g, "").replace(/站$/, "");
+  const exact = rowsForStop.find((r: any) => norm(r.dtc) === norm(heart.destTc));
+  if (exact) {
+    return { first: exact.f, last: exact.l, note: `此站往${exact.dtc} · 港鐵官方服務時間 ${data.generated || ""}` };
+  }
+  const names: Record<string, string> = ld.names || {};
+  const destCode = Object.keys(names).find((code) => norm(names[code]) === norm(heart.destTc));
+  const pos: Record<string, number> = ld.pos || {};
+  const myPos = pos[m.sta];
+  const destPos = destCode ? pos[destCode] : undefined;
+  if (myPos === undefined || destPos === undefined || destPos === myPos) return null;
+  const dirSign = destPos > myPos ? 1 : -1;
+  const cand = rowsForStop.filter((r: any) => {
+    const p = pos[r.d];
+    return p !== undefined && p !== myPos && (p > myPos ? 1 : -1) === dirSign;
+  });
+  if (!cand.length) return null;
+  const first = cand.map((r: any) => r.f).sort()[0];
+  const last = cand.map((r: any) => r.l).sort()[cand.length - 1];
+  return { first, last, note: `此站往${heart.destTc}方向 · 港鐵官方服務時間 ${data.generated || ""}` };
+}
+
 function TimetableNote({ heart, alignRight }: { heart: FavoriteRouteStop; alignRight?: boolean }) {
   const [info, setInfo] = React.useState<NoteInfo | null>(null);
   const [loaded, setLoaded] = React.useState(false);
@@ -530,6 +569,17 @@ function TimetableNote({ heart, alignRight }: { heart: FavoriteRouteStop; alignR
         try {
           const lrtData = await loadLrtTt();
           const n = lrtData ? lrtNoteFor(heart, lrtData) : null;
+          if (n) {
+            if (alive) { setInfo(n); setLoaded(true); }
+            return;
+          }
+        } catch {}
+      }
+      // (1.6) Heavy rail per-station official service hours
+      if (heart.operator === "MTRT") {
+        try {
+          const mtrData = await loadMtrTt();
+          const n = mtrData ? mtrNoteFor(heart, mtrData) : null;
           if (n) {
             if (alive) { setInfo(n); setLoaded(true); }
             return;

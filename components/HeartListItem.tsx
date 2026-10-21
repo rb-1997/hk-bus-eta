@@ -362,6 +362,59 @@ function gmbNoteFor(heart: FavoriteRouteStop, data: any, holidays: string[]): No
   };
 }
 
+let busTtCache: Promise<any> | null = null;
+function loadBusTt(): Promise<any> {
+  if (!busTtCache) {
+    busTtCache = fetch("bus-timetables.json").then((r) => r.json()).catch(() => null);
+  }
+  return busTtCache;
+}
+
+// KMB/LWB/CTB note from the TD GTFS bundle. Day index follows the GTFS
+// convention (0=Sunday..6=Saturday = Date.getDay()); public holidays use
+// the Sunday pattern, the standard HK arrangement in this dataset.
+function busNoteFor(heart: FavoriteRouteStop, data: any, holidays: string[]): NoteInfo | null {
+  if (!data?.routes) return null;
+  const rid = (heart as any).routeId || "";
+  let key: string | null = null;
+  if (rid.startsWith("KMB-")) {
+    key = rid;
+  } else if (rid.startsWith("CTB-")) {
+    const route = rid.slice(4).replace(/-(inbound|outbound)$/, "");
+    key = `CTB-${route}-${rid.endsWith("inbound") ? "I" : "O"}`;
+  }
+  if (!key) {
+    const b: string | undefined = (heart as any).bound;
+    const bl = b === "inbound" ? "I" : b === "outbound" ? "O" : b;
+    if (!bl) return null;
+    if (heart.operator === "CTB") key = `CTB-${heart.route}-${bl}`;
+    else if (heart.operator === "KMB" || heart.operator === "LWB")
+      key = `KMB-${heart.route}-${bl}-${(heart as any).serviceType || 1}`;
+  }
+  const variants = key ? data.routes[key] : null;
+  if (!variants || !variants.length) return null;
+  const now = new Date();
+  const ymd = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  const idx = holidays.includes(ymd) ? 0 : now.getDay();
+  const norm = (s: string) => (s || "").replace(/\s/g, "").replace(/（/g, "(").replace(/）/g, ")");
+  const variant =
+    variants.find((v: any) => norm(v.o) === norm(heart.originTc) && norm(v.d) === norm(heart.destTc)) ||
+    variants.find((v: any) => v.days && v.days[idx]) ||
+    variants[0];
+  if (!variant) return null;
+  const day = variant.days ? variant.days[idx] : null;
+  const srcNote = `${variant.o}往${variant.d}（總站開出）· 運輸署資料 ${data.generated || ""}`;
+  if (!day) return { noServiceToday: true, note: srcNote };
+  const freq = day.fx
+    ? "固定班次開出"
+    : `約 ${day.a === day.b ? day.a : `${day.a}–${day.b}`} 分鐘一班`;
+  return {
+    first: day.f,
+    last: day.l + (day.ln ? "（翌日）" : ""),
+    note: `${variant.o}往${variant.d}（總站開出）· ${freq} · 運輸署資料 ${data.generated || ""}`,
+  };
+}
+
 function TimetableNote({ heart, alignRight }: { heart: FavoriteRouteStop; alignRight?: boolean }) {
   const [info, setInfo] = React.useState<NoteInfo | null>(null);
   const [loaded, setLoaded] = React.useState(false);
@@ -390,11 +443,22 @@ function TimetableNote({ heart, alignRight }: { heart: FavoriteRouteStop; alignR
         ].filter(Boolean);
         for (const k of keys) {
           if (data[k as string]) {
-            if (alive) setInfo({ first: data[k as string].first, last: data[k as string].last, note: data[k as string].note });
-            break;
+            if (alive) { setInfo({ first: data[k as string].first, last: data[k as string].last, note: data[k as string].note }); setLoaded(true); }
+            return;
           }
         }
       } catch {}
+      // (3) KMB/LWB/CTB bulk TD timetables
+      if (heart.operator === "KMB" || heart.operator === "LWB" || heart.operator === "CTB") {
+        try {
+          const [data, holidays] = await Promise.all([loadBusTt(), loadHolidays2()]);
+          const n = data ? busNoteFor(heart, data, holidays || []) : null;
+          if (n) {
+            if (alive) { setInfo(n); setLoaded(true); }
+            return;
+          }
+        } catch {}
+      }
       if (alive) setLoaded(true);
     })();
     return () => { alive = false; };

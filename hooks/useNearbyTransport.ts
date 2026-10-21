@@ -13,6 +13,9 @@ export interface NearbyTransport {
   dist: number;
   // For bus: BusStop object; for mtr/lrt: metadata for ETA fetching
   busStop?: BusStop;
+  // Extra stop records merged into this card (same name + same pole in the
+  // source data, e.g. KMB registering one physical stop twice)
+  mergedStops?: BusStop[];
   mtrt?: { line: string; sta: string; lineTc: string; lineEn: string };
   lrt?: { stationId: string; tc: string; en: string };
   gmb?: { route_id: number; route_seq: number; stop_seq: number; code: string; dest_tc: string; dest_en: string; stop_id: number };
@@ -53,22 +56,36 @@ export function useNearbyTransport(
     (async () => {
       const all: NearbyTransport[] = [];
 
-      // Bus stops (within 800m)
+      // Bus stops (within 800m). Source data sometimes registers the same
+      // physical stop twice (same name, coordinates within a few metres,
+      // different internal ids - e.g. TM136/TM137). Merge those into ONE
+      // card; the card queries every merged record so no route is lost.
+      const baseName = (n: string) => n.replace(/\s*\([A-Z]{1,3}\d+\)\s*$/, "").trim();
       for (const s of busStops) {
         if (s.lat == null || s.lng == null) continue;
         const dist = haversine(userLat, userLng, s.lat, s.lng);
-        if (dist <= maxDist) {
-          all.push({
-            kind: "bus",
-            id: s.id,
-            nameTc: s.nameTc,
-            nameEn: s.nameEn,
-            lat: s.lat,
-            lng: s.lng,
-            dist,
-            busStop: s,
-          });
+        if (dist > maxDist) continue;
+        const dup = all.find(
+          (it) =>
+            it.kind === "bus" &&
+            baseName(it.nameTc) === baseName(s.nameTc) &&
+            haversine(it.lat, it.lng, s.lat, s.lng) <= 5
+        );
+        if (dup) {
+          dup.mergedStops = [...(dup.mergedStops || []), s];
+          if (dist < dup.dist) dup.dist = dist;
+          continue;
         }
+        all.push({
+          kind: "bus",
+          id: s.id,
+          nameTc: s.nameTc,
+          nameEn: s.nameEn,
+          lat: s.lat,
+          lng: s.lng,
+          dist,
+          busStop: s,
+        });
       }
 
       // MTR train stations (within 800m)

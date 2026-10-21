@@ -111,9 +111,31 @@ export function NearbyTransportCard({
     swrKey,
     async () => {
       if (item.kind === "bus" && item.busStop) {
-        // Use getAllETAsForStop for bus (includes cross-operator)
+        // Use getAllETAsForStop for bus (includes cross-operator).
+        // Merged duplicate records: query every record, then dedupe so the
+        // same bus appearing via two registrations shows only once.
         const { getAllETAsForStop } = await import("@/utils/static-api");
-        return getAllETAsForStop(item.busStop);
+        const stops = [item.busStop, ...(item.mergedStops || [])];
+        if (stops.length === 1) return getAllETAsForStop(stops[0]);
+        const results = await Promise.all(
+          stops.map((s) => getAllETAsForStop(s).catch(() => [] as any[]))
+        );
+        const seen = new Set<string>();
+        const merged: any[] = [];
+        for (const list of results) {
+          for (const e of list) {
+            const key = `${e.operator}-${e.route}-${e.destEn}-${e.etaMinutes}`;
+            if (seen.has(key)) continue;
+            seen.add(key);
+            merged.push(e);
+          }
+        }
+        merged.sort((a, b) => {
+          if (a.etaMinutes === null) return 1;
+          if (b.etaMinutes === null) return -1;
+          return a.etaMinutes - b.etaMinutes;
+        });
+        return merged;
       } else if (item.kind === "mtr" && item.mtrt) {
         // Direct fetch for MTR (bypass getETAs)
         try {

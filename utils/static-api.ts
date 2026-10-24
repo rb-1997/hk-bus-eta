@@ -1195,9 +1195,16 @@ export async function getAllETAsForStop(
       link = { ctb: [{ id: "003939", dist: 10 }], mtr: [], gmb: [] };
     }
     if (link) {
-      // CTB linked stops: query ETA (limit 1 stop to avoid request storm)
+      // CTB linked stops: query ETA for the NEAREST linked stop only
+      // (limit 1 stop to avoid request storm). stop-links.json is NOT
+      // sorted by distance, and CTB stops are direction-specific -
+      // opposite sides of the road are different stops. Taking list
+      // order first showed the wrong direction's buses at 老鼠洲兒童
+      // 遊樂場 (TM690: list-first 001923 inbound, 26.2m, while the
+      // correct outbound stop 001922 is 13.1m away). Nearest wins.
       const ctbRoutes = await getCtbStopRoutes();
-      for (const ctb of (link.ctb || []).slice(0, 1)) {
+      const ctbSorted = [...(link.ctb || [])].sort((a, b) => (a.dist ?? 9999) - (b.dist ?? 9999));
+      for (const ctb of ctbSorted.slice(0, 1)) {
         const routes = (ctbRoutes[ctb.id] || []).slice(0, 4).join(",");
         if (routes) {
           promises.push(
@@ -1221,9 +1228,12 @@ export async function getAllETAsForStop(
           }).catch(() => [] as ETA[])
         );
       }
-      // GMB linked stops (up to 4 routes per stop to cover multi-route stops
-      // like 43C which may not be first in the list; proxy handles the load)
-      for (const g of (link.gmb || []).slice(0, 1)) {
+      // GMB linked stops: same nearest-wins rule as CTB (GMB stops are
+      // also direction-specific; list order is not distance order).
+      // Up to 4 routes per stop to cover multi-route stops like 43C
+      // which may not be first in the list; proxy handles the load.
+      const gmbSorted = [...(link.gmb || [])].sort((a, b) => (a.dist ?? 9999) - (b.dist ?? 9999));
+      for (const g of gmbSorted.slice(0, 1)) {
         for (const rd of (g.routes_detail || []).slice(0, 4)) {
           promises.push(
             getETAs({

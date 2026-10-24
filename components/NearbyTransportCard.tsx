@@ -333,7 +333,19 @@ export function NearbyTransportCard({
     return null;
   }
 
-  const shown = expanded ? filteredEtas : filteredEtas.slice(0, 4);
+  // Homepage rule (RB3, 2026-10-24): every card sorts by time across
+  // ALL directions, so the collapsed card always shows the fastest
+  // departures without tapping in. Unknown ("-") departures go last;
+  // stable sort keeps source order within equal minutes. This one
+  // place covers bus, MTR, LRT, GMB, NLB and ferries (LRT/MTR branches
+  // used to be direction-grouped from their APIs).
+  const sortedEtas = [...filteredEtas].sort((a: any, b: any) => {
+    if (a.etaMinutes === null && b.etaMinutes === null) return 0;
+    if (a.etaMinutes === null) return 1;
+    if (b.etaMinutes === null) return -1;
+    return a.etaMinutes - b.etaMinutes;
+  });
+  const shown = expanded ? sortedEtas : sortedEtas.slice(0, 4);
   const distText =
     item.dist < 1000 ? `${Math.round(item.dist)}m` : `${(item.dist / 1000).toFixed(1)}km`;
 

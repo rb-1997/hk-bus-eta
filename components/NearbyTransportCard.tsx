@@ -190,7 +190,7 @@ export function NearbyTransportCard({
                 let mins = null;
                 const m = timeStr.match(/(\d+)/);
                 if (m) mins = parseInt(m[1], 10);
-                if (timeStr.includes("即將") || timeStr.toLowerCase().includes("arriving")) mins = 0;
+                if (timeStr.includes("即將") || timeStr.includes("埋站") || timeStr.toLowerCase().includes("arriving")) mins = 0;
                 trains.push({
                   id: `lrt-${item.lrt.stationId}-${plat.platform_id}-${route.route_no}`,
                   operator: "LRT" as const,
@@ -206,6 +206,18 @@ export function NearbyTransportCard({
                 });
               }
             }
+            // Sort by time across BOTH directions (RB3, 2026-10-24):
+            // the API returns platform-by-platform (direction-grouped),
+            // but the card must show the soonest departure on top.
+            // Unknown ("-") departures go last; stable sort keeps
+            // platform order within equal minutes.
+            trains.sort((a: any, b: any) => {
+              if (a.etaMinutes === null && b.etaMinutes === null) return 0;
+              if (a.etaMinutes === null) return 1;
+              if (b.etaMinutes === null) return -1;
+              return a.etaMinutes - b.etaMinutes;
+            });
+            trains.forEach((t: any, i: number) => { t.sequence = i + 1; });
             return trains;
           }
         } catch (e) {

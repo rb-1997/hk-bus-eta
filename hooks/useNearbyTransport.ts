@@ -56,10 +56,15 @@ export function useNearbyTransport(
     (async () => {
       const all: NearbyTransport[] = [];
 
-      // Bus stops (within 800m). Source data sometimes registers the same
-      // physical stop twice (same name, coordinates within a few metres,
-      // different internal ids - e.g. TM136/TM137). Merge those into ONE
-      // card; the card queries every merged record so no route is lost.
+      // Bus stops (within 800m). Source data registers the same stop
+      // area many times (same name, different internal ids - e.g. the six
+      // 友愛邨 records TM161-TM166 spread over ~27m, or TM136/TM137 vs
+      // TM730/TM731 at 屯門官立中學 38.1m apart). Same name within 40m
+      // (the same radius the app already uses for cross-operator stop
+      // matching) merges into ONE card; the card queries every merged
+      // record so no route is lost, and identical departures dedupe.
+      // 2026-10-24: raised from 5m - the 5m rule left look-alike cards
+      // (友愛邨 TM162/TM164, 9.6m apart) showing the same bus twice.
       const baseName = (n: string) => n.replace(/\s*\([A-Z]{1,3}\d+\)\s*$/, "").trim();
       for (const s of busStops) {
         if (s.lat == null || s.lng == null) continue;
@@ -69,11 +74,17 @@ export function useNearbyTransport(
           (it) =>
             it.kind === "bus" &&
             baseName(it.nameTc) === baseName(s.nameTc) &&
-            haversine(it.lat, it.lng, s.lat, s.lng) <= 5
+            haversine(it.lat, it.lng, s.lat, s.lng) <= 40
         );
         if (dup) {
           dup.mergedStops = [...(dup.mergedStops || []), s];
-          if (dist < dup.dist) dup.dist = dist;
+          // Keep the card anchored on the record nearest the user, so
+          // distance and Google Maps navigation point at the right pole.
+          if (dist < dup.dist) {
+            dup.dist = dist;
+            dup.lat = s.lat;
+            dup.lng = s.lng;
+          }
           continue;
         }
         all.push({

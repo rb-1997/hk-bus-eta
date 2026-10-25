@@ -35,7 +35,7 @@ import clsx from "clsx";
 
 // App name + version: bump patch version on every user-facing change
 export const APP_NAME = "CNE 交通資訊";
-export const APP_VERSION = "1.1.25";
+export const APP_VERSION = "1.1.26";
 
 export function OperatorBadge({ operator }: { operator: string }) {
   const src =
@@ -238,10 +238,14 @@ function LiteRouteStopRow({
   ferryMeta,
   isHeart,
   onToggleHeart,
+  lat,
+  lng,
 }: {
   seq: number;
   nameTc?: string;
   nameEn?: string;
+  lat?: number;
+  lng?: number;
   route: BusRoute;
   gmbMeta?: { region: string; code: string; route_id: number; route_seq: number };
   kmbStopId?: string;
@@ -350,9 +354,32 @@ function LiteRouteStopRow({
       <div className="w-7 h-7 rounded-full bg-slate-100 text-slate-600 text-[13px] font-semibold flex items-center justify-center shrink-0 tabular-nums">
         {seq}
       </div>
-      <div className="min-w-0 flex-1">
-        <div className="text-[15px] font-medium text-slate-900 line-clamp-2 leading-snug">
-          {displayTc || displayEn || `第 ${seq} 站`}
+      <div
+        className={clsx("min-w-0 flex-1", lat != null && lng != null && "cursor-pointer")}
+        role={lat != null && lng != null ? "button" : undefined}
+        aria-label={
+          lat != null && lng != null
+            ? `喺 Google 地圖導航去 ${displayTc || displayEn}`
+            : undefined
+        }
+        title={lat != null && lng != null ? "撳一下開 Google 地圖導航去呢個站" : undefined}
+        onClick={
+          lat != null && lng != null
+            ? () =>
+                window.open(
+                  `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=walking`,
+                  "_blank"
+                )
+            : undefined
+        }
+      >
+        <div className="flex items-center gap-1.5">
+          <div className="text-[15px] font-medium text-slate-900 line-clamp-2 leading-snug">
+            {displayTc || displayEn || `第 ${seq} 站`}
+          </div>
+          {lat != null && lng != null && (
+            <Navigation className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+          )}
         </div>
         {displayTc && displayEn && displayTc !== displayEn && (
           <div className="text-[13px] text-slate-400 truncate">{displayEn}</div>
@@ -422,6 +449,8 @@ function LiteRouteStopsList({
             seq: ss.seq,
             nameTc: ss.name_tc,
             nameEn: ss.name_en,
+            lat: ss.lat,
+            lng: ss.lng,
             gmbMeta: route.gmb,
             kmbStopId: undefined as string | undefined,
             ctbStopId: undefined as string | undefined,
@@ -441,6 +470,8 @@ function LiteRouteStopsList({
           seq: Number(ss.seq) || 0,
           nameTc: found?.nameTc,
           nameEn: found?.nameEn,
+          lat: found?.lat,
+          lng: found?.lng,
           gmbMeta: undefined,
           kmbStopId: route.operator === "KMB" ? ss.stop : undefined,
           ctbStopId: route.operator === "CTB" ? ss.stop : undefined,
@@ -482,6 +513,8 @@ function LiteRouteStopsList({
               mtrMeta={s.mtrMeta}
               nlbMeta={s.nlbMeta}
               ferryMeta={s.ferryMeta}
+              lat={s.lat}
+              lng={s.lng}
               isHeart={isHeart}
               onToggleHeart={onToggleHeart}
             />

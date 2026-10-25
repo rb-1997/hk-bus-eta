@@ -65,7 +65,18 @@ export function useNearbyTransport(
       // record so no route is lost, and identical departures dedupe.
       // 2026-10-24: raised from 5m - the 5m rule left look-alike cards
       // (友愛邨 TM162/TM164, 9.6m apart) showing the same bus twice.
-      const baseName = (n: string) => n.replace(/\s*\([A-Z]{1,3}\d+\)\s*$/, "").trim();
+      // 2026-10-25 (RB3 approved): "X總站" counts as the same place as
+      // "X" (e.g. 屯門市中心總站 vs 屯門市中心, 7.2m apart, sharing one CTB
+      // stop) - strip a trailing 總站 before comparing. Territory-wide
+      // simulation: only 15 fewer cards across 26 same-place groups.
+      const baseName = (n: string) => {
+        const s = n
+          .replace(/\s*\([A-Z]{1,3}\d+\)\s*$/, "")
+          .trim()
+          .replace(/總站$/, "")
+          .trim();
+        return s || n;
+      };
       for (const s of busStops) {
         if (s.lat == null || s.lng == null) continue;
         const dist = haversine(userLat, userLng, s.lat, s.lng);

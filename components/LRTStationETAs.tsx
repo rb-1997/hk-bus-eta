@@ -46,6 +46,7 @@ export function LRTStationETAs({ route }: { route: BusRoute }) {
                 etaMinutes: mins,
                 remarkEn: r.time_en || undefined,
                 remarkTc: r.time_ch || undefined,
+                platform: plat.platform_id ? String(plat.platform_id) : undefined,
                 sequence: trains.length + 1,
                 isRealtime: true,
               });
@@ -116,6 +117,7 @@ export function LRTStationETAs({ route }: { route: BusRoute }) {
                   <div className="text-[17px] font-bold text-slate-900">{e.route}</div>
                   <div className="text-[13px] text-slate-500 truncate">
                     往 {e.destTc || e.destEn}
+                    {e.platform ? ` · ${e.platform}號月台` : ""}
                   </div>
                 </div>
                 <span

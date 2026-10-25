@@ -164,6 +164,7 @@ export function NearbyTransportCard({
                     etaMinutes: mins,
                     remarkEn: `Plat ${t.plat}`,
                     remarkTc: `${t.plat}號月台`,
+                    platform: t.plat ? String(t.plat) : undefined,
                     sequence: trains.length + 1,
                     isRealtime: true,
                   });
@@ -201,6 +202,7 @@ export function NearbyTransportCard({
                   etaMinutes: mins,
                   remarkEn: route.time_en || undefined,
                   remarkTc: route.time_ch || undefined,
+                  platform: plat.platform_id ? String(plat.platform_id) : undefined,
                   sequence: trains.length + 1,
                   isRealtime: true,
                 });
@@ -445,6 +447,9 @@ export function NearbyTransportCard({
                 <span className="text-[13px] text-slate-500 truncate flex-1">
                   往 {e.destTc || e.destEn}
                 </span>
+                {(item.kind === "mtr" || item.kind === "lrt") && e.platform && (
+                  <span className="text-[12px] text-slate-400 shrink-0">{e.platform}號月台</span>
+                )}
                 <span
                   className={clsx(
                     "text-[14px] font-semibold tabular-nums shrink-0",

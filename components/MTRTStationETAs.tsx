@@ -113,6 +113,7 @@ export function MTRTStationETAs({ route }: { route: BusRoute }) {
                 destEn,
                 etaMinutes: mins,
                 remarkTc: timeStr,
+                platform: (t as any).plat ? String((t as any).plat) : undefined,
                 sequence: trains.length + 1,
                 isRealtime: true,
               });
@@ -196,6 +197,7 @@ export function MTRTStationETAs({ route }: { route: BusRoute }) {
                   <div key={i} className="flex items-center justify-between">
                     <span className="text-[14px] text-slate-500">
                       {e.remarkTc || e.remarkEn || `第 ${i + 1} 班`}
+                      {e.platform ? ` · ${e.platform}號月台` : ""}
                     </span>
                     <span
                       className={clsx(

@@ -114,6 +114,7 @@ export interface ETA {
   etaMinutes: number | null;
   remarkEn?: string;
   remarkTc?: string;
+  platform?: string; // rail platform number from the operator API (MTR plat / LRT platform_id)
   sequence: number;
   isRealtime: boolean;
 }

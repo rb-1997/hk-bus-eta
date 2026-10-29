@@ -10,7 +10,13 @@ import { ChevronDown, Star, StarOff, Navigation } from "lucide-react";
 import { OperatorBadge } from "./LiteApp";
 
 function etaText(e: ETA): string {
-  if (e.etaMinutes === null) return e.remarkTc || e.remarkEn || "—";
+  // 2026-10-29: a bare "-" remark (LRT API lists a train with no predicted
+  // time) used to render as just "-"; label it honestly instead. Real
+  // remarks (e.g. 未開出) are preserved.
+  if (e.etaMinutes === null) {
+    const r = e.remarkTc || e.remarkEn;
+    return r && r !== "-" ? r : "時間待定";
+  }
   if (e.etaMinutes <= 0) return "即將到站";
   const arrival = new Date(Date.now() + e.etaMinutes * 60000);
   const hh = String(arrival.getHours()).padStart(2, "0");

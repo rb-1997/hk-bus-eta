@@ -52,6 +52,10 @@ export function LRTStationETAs({ route }: { route: BusRoute }) {
               });
             }
           }
+          // 2026-10-29: sort by time like the nearby card (v1.1.22) - the
+          // detail view previously showed raw platform order, so the
+          // earliest train was not on top.
+          trains.sort((a, b) => (a.etaMinutes ?? 9999) - (b.etaMinutes ?? 9999));
           return trains;
         }
       } catch (e) {
@@ -132,7 +136,11 @@ export function LRTStationETAs({ route }: { route: BusRoute }) {
                   )}
                 >
                   {e.etaMinutes === null
-                    ? (e.remarkTc || e.remarkEn || "—")
+                    ? (e.remarkTc && e.remarkTc !== "-"
+                        ? e.remarkTc
+                        : e.remarkEn && e.remarkEn !== "-"
+                          ? e.remarkEn
+                          : "時間待定")
                     : e.etaMinutes <= 0
                       ? "即將到站"
                       : (() => {
@@ -149,7 +157,7 @@ export function LRTStationETAs({ route }: { route: BusRoute }) {
       )}
 
       <div className="text-[12px] text-slate-400 text-center">
-        資料每 30 秒更新 · 輕鐵實時班次
+        資料每 10 秒更新 · 輕鐵實時班次
       </div>
     </div>
   );
